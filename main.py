@@ -9,7 +9,7 @@ load_dotenv()
 
 
 from utils import _env
-from userbot import channel_managers
+from userbot import channel_counts, channel_managers
 
 
 logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
@@ -27,6 +27,11 @@ async def hello():
 @app.get("/cman/{id}")
 async def cman(id: str):
     return await channel_managers(id)
+
+
+@app.get("/ccount/{id}")
+async def ccount(id: str):
+    return await channel_counts(id)
 
 
 if __name__ == "__main__":
