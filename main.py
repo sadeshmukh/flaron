@@ -2,8 +2,15 @@ from fastapi import FastAPI
 import uvicorn
 import sys
 import os
-from utils import _env
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+from utils import _env
+from userbot import channel_managers
+
 
 logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
 
@@ -17,5 +24,10 @@ async def hello():
     return {"message": "Hello, World!"}
 
 
+@app.get("/cman/{id}")
+async def cman(id: str):
+    return await channel_managers(id)
+
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", reload="--reload" in sys.argv)
+    uvicorn.run("main:app", host="0.0.0.0", reload="--reload" in sys.argv)
