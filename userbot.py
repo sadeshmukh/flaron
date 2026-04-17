@@ -114,4 +114,4 @@ async def user_info(user_id: str) -> dict:
 if __name__ == "__main__":
     import asyncio
 
-    print(asyncio.run(channel_counts("C0A9PMV58R5")))
+    print(asyncio.run(user_info("U0AUBTWBT1N")))
