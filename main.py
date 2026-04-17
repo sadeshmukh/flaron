@@ -3,7 +3,9 @@ import uvicorn
 import sys
 import os
 from utils import _env
+import logging
 
+logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
 
 PRIVATECHANNEL_BASE = _env("PRIVATECHANNEL_BASE")
 
