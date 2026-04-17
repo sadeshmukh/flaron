@@ -30,7 +30,7 @@ async def cname_private(id: str) -> dict:
 
 
 async def cid_by_name(name: str) -> dict:
-    url = f"{PRIVATECHANNEL_BASE}/fakepostchannel/?name={name}"
+    url = f"{PRIVATECHANNEL_BASE}/fakepostchannel?name={name}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as res:
             data = await res.json()
