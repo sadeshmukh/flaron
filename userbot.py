@@ -17,6 +17,7 @@ XOXC = _env("XOXC")
 XOXD = _env("XOXD")
 BASE = "https://hackclub.enterprise.slack.com/api/"
 EID = "E09V59WQY1E"
+# TID = "T0266FRGM"
 
 # region primitives
 
@@ -54,7 +55,6 @@ async def edge(path: str, jsondata: dict = {}, params: dict[str, str] = {}) -> d
             url, data=json.dumps(jsondata, separators=(",", ":"))
         ) as res:
             data = await res.json()
-            print(data)
             if not data.get("ok"):
                 logging.info(
                     f"error in {path}: {data.get('error', 'this should never be seen')}"
@@ -134,6 +134,32 @@ async def channel_info(channel_id: str) -> dict:
         return {"error": "unknown"}
 
 
+async def name_to_id(name: str) -> dict:
+    data = await edge(
+        "channels/search",
+        jsondata={
+            "query": name,
+            # "check_membership": False,
+            "count": 1,
+            # "default_workspace": TID,
+            # "filter": "xws",
+            # "include_record_channels": True,
+            # "top_channels": [],
+            # "fuzz": 1,
+        },
+    )
+    if err := data.get("error"):
+        logger.error(f"channel info error: {err}")
+        return {"error": err}
+    try:
+        if data.get("results", [])[0].get("name") != name:
+            return {"error": "not found"}
+        return {"data": {"id": data.get("results", [])[0].get("id")}}
+    except Exception:
+        logger.error(f"channel search (name to id) error: {err}")
+        return {"error": "unknown"}
+
+
 async def user_info(user_id: str) -> dict:
     data = await req("users.profile.get", params={"user": user_id})
     # {profile: {title, real_name, display_name}}
@@ -144,4 +170,4 @@ async def user_info(user_id: str) -> dict:
 if __name__ == "__main__":
     import asyncio
 
-    print(asyncio.run(user_info("U0AUBTWBT1N")))
+    print(asyncio.run(name_to_id("hq")))

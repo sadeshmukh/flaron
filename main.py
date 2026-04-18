@@ -10,7 +10,7 @@ load_dotenv()
 
 
 from utils import _env
-from userbot import channel_counts, channel_info, channel_managers
+from userbot import channel_counts, channel_info, channel_managers, name_to_id
 
 
 logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
@@ -89,6 +89,9 @@ async def channel_by_id(id: str):
 
 @app.get("/cname/{name}")
 async def channel_by_name(name: str):
+    data = await name_to_id(name)
+    if not (err := data.get("error")):
+        return await channel(data.get("data", {}).get("id"))
     id = (await cid_by_name(name)).get("id", "")
     if not id:
         return {"error": "nonexistent"}
