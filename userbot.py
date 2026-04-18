@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 XOXC = _env("XOXC")
 XOXD = _env("XOXD")
 BASE = "https://hackclub.enterprise.slack.com/api/"
+EID = "E09V59WQY1E"
 
 # region primitives
 
@@ -24,7 +25,7 @@ async def req(
     path: str, form: dict[str, str] = {}, params: dict[str, str] = {}
 ) -> dict:
     headers = {"Cookie": f"d={quote(XOXD)}", "Accept": "*/*"}
-    params.update({"slack_route": "E09V59WQY1E:E09V59WQY1E"})
+    params.update({"slack_route": f"{EID}:{EID}"})
     url = f"{BASE}{path}?{urlencode(params)}"
     logging.info(url)
     form.update({"token": quote(XOXC)})
@@ -45,7 +46,7 @@ async def edge(path: str, jsondata: dict = {}, params: dict[str, str] = {}) -> d
         "Accept": "*/*",
         "Cookie": f"d={quote(XOXD)}; d-s={_env('DS')}; ic={_env('DS')}",
     }
-    url = f"https://edgeapi.slack.com/cache/E09V59WQY1E/{path}"
+    url = f"https://edgeapi.slack.com/cache/{EID}/{path}"
 
     jsondata.update({"as_admin": True, "token": XOXC, "enterprise_token": XOXC})
     async with aiohttp.ClientSession(headers=headers) as session:
@@ -101,6 +102,35 @@ async def channel_counts(channel_id: str) -> dict:
         }
     except Exception as err:
         logger.error(f"channel count parsing broke: {err}")
+        return {"error": "unknown"}
+
+
+async def channel_info(channel_id: str) -> dict:
+    data = await edge(
+        "channels/info", {"check_membership": True, "updated_ids": {channel_id: 0}}
+    )
+    if err := data.get("error"):
+        logger.error(f"channel info error: {err}")
+        return {"error": err}
+    try:
+        channel = data.get("results", [])[0]
+        # creator, name, previous_names, created, is_archived
+        # purpose.value, topic.value
+        # properties - tbd, but has: tabz, tabs (which look identical?)
+
+        return {
+            "data": {
+                "creator": channel["creator"],
+                "name": channel["name"],
+                "previous_names": channel["previous_names"],
+                "created": channel["created"],
+                "is_archived": channel["is_archived"],
+                "description": channel["purpose"]["value"],
+                "topic": channel["topic"]["value"],
+            }
+        }
+    except Exception as err:
+        logger.error(f"channel info error: {err}")
         return {"error": "unknown"}
 
 

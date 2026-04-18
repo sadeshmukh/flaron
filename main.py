@@ -10,7 +10,7 @@ load_dotenv()
 
 
 from utils import _env
-from userbot import channel_counts, channel_managers
+from userbot import channel_counts, channel_info, channel_managers
 
 
 logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
@@ -69,12 +69,16 @@ async def channel(id: str):
         return ret
 
     elif "error" in managers and managers["error"] == "private":
+        # private
         name = (await cname_private(id)).get("name", "unknown")
         ret["name"] = name
         return ret
 
+    # public below
     ret["counts"] = (await channel_counts(id)).get("data", {})
     ret["managers"] = managers.get("data", [])
+    if not (info := await channel_info(id)).get("error", {}):
+        ret.update(info.get("data", {}))
     return ret
 
 
