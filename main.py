@@ -9,35 +9,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+from private import cid_by_name_private, cname_private
 from utils import _env
 from userbot import channel_counts, channel_info, channel_managers, name_to_id
 
 
 logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
-
-PRIVATECHANNEL_BASE = _env("PRIVATECHANNEL_BASE")
-
-
-async def cname_private(id: str) -> dict:
-    url = f"{PRIVATECHANNEL_BASE}/channel/{id}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as res:
-            data = await res.json()
-            if not data.get("success") and not data.get("ok"):
-                return {"error": "channel doesn't exist"}
-
-            return data
-
-
-async def cid_by_name(name: str) -> dict:
-    url = f"{PRIVATECHANNEL_BASE}/fakepostchannel?name={name}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as res:
-            data = await res.json()
-            if not data.get("success"):
-                return {"error": "channel doesn't exist"}
-
-            return data
 
 
 app = FastAPI()
@@ -92,7 +69,7 @@ async def channel_by_name(name: str):
     data = await name_to_id(name)
     if not (err := data.get("error")):
         return await channel(data.get("data", {}).get("id"))
-    id = (await cid_by_name(name)).get("id", "")
+    id = (await cid_by_name_private(name)).get("id", "")
     if not id:
         return {"error": "nonexistent"}
     return await channel(id)
