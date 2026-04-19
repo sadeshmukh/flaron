@@ -1,9 +1,10 @@
 import json
-
+import re
 import aiohttp
 import logging
 from utils import _env
 from urllib.parse import quote, urlencode
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -22,9 +23,7 @@ EID = "E09V59WQY1E"
 # region primitives
 
 
-async def req(
-    path: str, form: dict[str, str] = {}, params: dict[str, str] = {}
-) -> dict:
+async def req(path: str, form: dict = {}, params: dict[str, str] = {}) -> dict:
     headers = {"Cookie": f"d={quote(XOXD)}", "Accept": "*/*"}
     params.update({"slack_route": f"{EID}:{EID}"})
     url = f"{BASE}{path}?{urlencode(params)}"
@@ -134,6 +133,33 @@ async def channel_info(channel_id: str) -> dict:
         return {"error": "unknown"}
 
 
+async def get_plausible_names(channel_id: str) -> dict:
+    data = await req(
+        "search.modules.messages",
+        form={
+            "query": channel_id,
+            "search_tab_filter": "messages",
+            "module": "messages",
+            # "page": 1,
+            # "count": 20,
+        },
+    )
+    if err := data.get("error"):
+        logger.error(f"plausible names error: {err}")
+        return {"error": "unknown"}
+    try:
+        # print(json.dumps(data.get("items")))
+        msgs = [
+            item.get("messages", [])[0].get("text") for item in data.get("items", [])
+        ]
+        print(msgs)
+        return {}
+
+    except Exception as err:
+        logger.error(f"plausible names parsing error: {err}")
+        return {"error": "unknown"}
+
+
 async def name_to_id(name: str) -> dict:
     data = await edge(
         "channels/search",
@@ -167,7 +193,51 @@ async def user_info(user_id: str) -> dict:
     return data
 
 
+async def userboot():
+    data = await req("client.userBoot")
+    if err := data.get("error"):
+        logger.error(f"userboot error: {err}")
+        print(data)
+        return {"error": "unknown"}
+    json.dump(data, open("userboot.json", "w"), indent=2)
+    return data
+
+
+async def appcommands():
+    data = await req("client.appCommands")
+    if err := data.get("error"):
+        logger.error(f"app commands error: {err}")
+        print(data)
+        return {"error": "unknown"}
+    json.dump(data, open("appcommands.json", "w"), indent=2)
+    return data
+
+
+async def who_installed_it(app_id: str) -> list:
+    headers = {
+        "Cookie": f"d={quote(XOXD)}",
+        "Accept": "text/html",
+    }
+    url = f"https://hackclub.slack.com/marketplace/{app_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as res:
+            html = await res.text()
+
+            match = re.search(
+                r'data-automount-component="AppDirectoryAuthorizations"\s+data-automount-props="([^"]+)"',
+                html,
+            )
+            if not match:
+                return []
+            props = json.loads(match.group(1).replace("&quot;", '"'))
+            authorizations = props.get("authorizations", [])
+            return [
+                {"id": auth.get("encodedUserLink"), "name": auth.get("userDisplayName")}
+                for auth in authorizations
+            ]
+
+
 if __name__ == "__main__":
     import asyncio
 
-    print(asyncio.run(name_to_id("hq")))
+    print(asyncio.run(who_installed_it("A0ADCQX31B2")))

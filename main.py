@@ -11,7 +11,13 @@ load_dotenv()
 
 from private import cid_by_name_private, cname_private
 from utils import _env
-from userbot import channel_counts, channel_info, channel_managers, name_to_id
+from userbot import (
+    channel_counts,
+    channel_info,
+    channel_managers,
+    name_to_id,
+    who_installed_it,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="[%(name)s]: %(message)s")
@@ -73,6 +79,14 @@ async def channel_by_name(name: str):
     if not id:
         return {"error": "nonexistent"}
     return await channel(id)
+
+
+@app.get("/app/{id}")
+async def app_info(id: str):
+    data = {}
+    if (installedby := await who_installed_it(id)) is not None:
+        data["installers"] = installedby
+    return data
 
 
 if __name__ == "__main__":
