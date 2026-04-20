@@ -1,3 +1,4 @@
+import re
 import aiohttp
 from fastapi import FastAPI
 import uvicorn
@@ -16,6 +17,7 @@ from userbot import (
     channel_info,
     channel_managers,
     name_to_id,
+    user_info_edge,
     who_installed_it,
 )
 
@@ -81,12 +83,37 @@ async def channel_by_name(name: str):
     return await channel(id)
 
 
+@app.get("/channel/{id}")
+async def channel_info_public(id: str):
+    if not re.fullmatch(r"C[A-Z0-9]{6,}", id):
+        return await channel_by_name(id)
+    return await channel(id)
+
+
+@app.get("/user/{id}")
+async def user_info(id: str):
+    if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
+        return {"error": "invalid user ID"}
+    data = {}
+    if not (userinfo := await user_info_edge(id)).get("error"):
+        data["user"] = userinfo.get("data", {})
+    if userinfo.get("data", {}).get("is_bot"):
+        app_id = userinfo.get("data", {}).get("app_id")
+        data["installers"] = await who_installed_it(app_id) if app_id else []
+    return data
+
+
 @app.get("/app/{id}")
 async def app_info(id: str):
+    if not re.fullmatch(r"A[A-Z0-9]{6,}", id):
+        return {"error": "invalid app ID"}
     data = {}
     if (installedby := await who_installed_it(id)) is not None:
         data["installers"] = installedby
-    return data
+        data["user"] = (await user_info_edge(installedby[0].get("id", ""))).get(
+            "data", {}
+        )
+    return data if data else {"error": "nonexistent"}
 
 
 if __name__ == "__main__":

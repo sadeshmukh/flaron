@@ -232,12 +232,83 @@ async def who_installed_it(app_id: str) -> list:
             props = json.loads(match.group(1).replace("&quot;", '"'))
             authorizations = props.get("authorizations", [])
             return [
-                {"id": auth.get("encodedUserLink"), "name": auth.get("userDisplayName")}
+                {
+                    "id": auth.get("encodedUserLink"),
+                    "name": auth.get("userDisplayName"),
+                    "access": auth.get("fullDescription"),
+                }
                 for auth in authorizations
             ]
+
+
+async def user_info_edge(id: str) -> dict:
+    data = await edge(
+        "users/info",
+        jsondata={
+            "updated_ids": {id: 0},
+        },
+    )
+    if err := data.get("error"):
+        logger.error(f"user info edge error: {err}")
+        return {"error": "unknown"}
+    try:
+        user = data.get("results", [])[0]
+        # fields: id, name, deleted, real_name, tz/tz_label/tz_offset, profile (title, phone, skype???, real_name, display_name
+        # ... other stuff is useless
+        # api_app_id, bot_id, always_active
+        # is_admin, is_owner, is_primary_owner, is_restricted, is_ultra_restricted
+        # duped/useless data elsewhere, maybe include status? or not ig
+        ret = {
+            "id": user.get("id"),
+            "name": user.get("name"),
+            "real_name": user.get("real_name"),
+            "deleted": user.get("deleted"),
+            "tz": user.get("tz"),
+            "tz_label": user.get("tz_label"),
+            "tz_offset": user.get("tz_offset"),
+            "title": user.get("profile", {}).get("title"),
+            "phone": user.get("profile", {}).get("phone"),
+            "display_name": user.get("profile", {}).get("display_name"),
+            "is_admin": user.get("is_admin"),
+            "is_owner": user.get("is_owner"),
+            "is_primary_owner": user.get("is_primary_owner"),
+            "is_restricted": user.get("is_restricted"),
+            "is_ultra_restricted": user.get("is_ultra_restricted"),
+        }
+        if user.get("is_bot"):
+            ret["is_bot"] = True
+            ret["bot_id"] = user.get("profile", {}).get("bot_id")
+            ret["app_id"] = user.get("profile", {}).get("api_app_id")
+            ret["always_active"] = user.get("always_active")
+        return {"data": ret}
+    except Exception as err:
+        logger.error(f"user info edge parsing error: {err}")
+        return {"error": "unknown"}
+
+
+async def testty(app_id: str):
+    headers = {
+        "Cookie": f"d={quote(XOXD)}",
+        "Accept": "text/html",
+    }
+    url = f"https://hackclub.slack.com/marketplace/{app_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as res:
+            html = await res.text()
+
+            matches = re.finditer(
+                r'data-automount-component="([^"]+)"\s+data-automount-props="([^"]+)"',
+                html,
+            )
+        result: dict[str, list] = {}
+        for match in matches:
+            component = match.group(1)
+            props = json.loads(match.group(2).replace("&quot;", '"'))
+            result.setdefault(component, []).append(props)
+        json.dump(result, open("automount.json", "w"), indent=2)
 
 
 if __name__ == "__main__":
     import asyncio
 
-    print(asyncio.run(who_installed_it("A0ADCQX31B2")))
+    print(asyncio.run(testty("A0ADCQX31B2")))
