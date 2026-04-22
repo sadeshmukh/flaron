@@ -17,6 +17,7 @@ from userbot import (
     channel_info,
     channel_managers,
     name_to_id,
+    promote_member,
     user_info_edge,
     who_installed_it,
 )
@@ -116,5 +117,14 @@ async def app_info(id: str):
     return data if data else {"error": "nonexistent"}
 
 
+@app.get("/promote/{id}")
+async def promote(id: str):
+    if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
+        return {"error": "invalid user ID"}
+    return await promote_member(id)
+
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", reload="--reload" in sys.argv)
+
+# conversations.genericInfo

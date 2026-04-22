@@ -16,26 +16,41 @@ logger = logging.getLogger(__name__)
 
 XOXC = _env("XOXC")
 XOXD = _env("XOXD")
-BASE = "https://hackclub.enterprise.slack.com/api/"
-EID = "E09V59WQY1E"
-# TID = "T0266FRGM"
+BASE = _env("BASE_SLACK_API", "https://hackclub.enterprise.slack.com/api/")
+ENTERPRISE_BASE = _env("ENTERPRISE_BASE", "https://hackclub.slack.com/api/")
+EID = _env("EID", "E09V59WQY1E")
+TID = _env("TID", "T0266FRGM")
+USE_WEIRD_TEAM_ROUTE_THING = _env("UWTRT", "false").lower() == "true"
 
 # region primitives
 
 
-async def req(path: str, form: dict = {}, params: dict[str, str] = {}) -> dict:
+async def req(
+    path: str, form: dict = {}, params: dict[str, str] = {}, use_enterprise_base=False
+) -> dict:
     headers = {"Cookie": f"d={quote(XOXD)}", "Accept": "*/*"}
-    params.update({"slack_route": f"{EID}:{EID}"})
-    url = f"{BASE}{path}?{urlencode(params)}"
-    logging.info(url)
+    params.update(
+        {
+            "slack_route": (
+                f"{EID}:{EID}" if not USE_WEIRD_TEAM_ROUTE_THING else f"{EID}:{TID}"
+            )
+        }
+    )
+    url = (
+        f"{BASE}{path}?{urlencode(params)}"
+        if not use_enterprise_base
+        else f"{ENTERPRISE_BASE}{path}?{urlencode(params)}"
+    )
+    logger.info(url)
     form.update({"token": quote(XOXC)})
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(url, data=form) as res:
             data = await res.json()
             if not data.get("ok"):
-                logging.info(
+                logger.info(
                     f"error in {path}: {data.get('error', 'this should never be seen')}"
                 )
+                logger.info(f"form data was: {form}")
                 return {"error": data.get("error")}
 
             return data
@@ -55,7 +70,7 @@ async def edge(path: str, jsondata: dict = {}, params: dict[str, str] = {}) -> d
         ) as res:
             data = await res.json()
             if not data.get("ok"):
-                logging.info(
+                logger.info(
                     f"error in {path}: {data.get('error', 'this should never be seen')}"
                 )
                 return {"error": data.get("error")}
@@ -218,7 +233,7 @@ async def who_installed_it(app_id: str) -> list:
         "Cookie": f"d={quote(XOXD)}",
         "Accept": "text/html",
     }
-    url = f"https://hackclub.slack.com/marketplace/{app_id}"
+    url = f"{ENTERPRISE_BASE}marketplace/{app_id}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as res:
             html = await res.text()
@@ -284,6 +299,23 @@ async def user_info_edge(id: str) -> dict:
     except Exception as err:
         logger.error(f"user info edge parsing error: {err}")
         return {"error": "unknown"}
+
+
+async def promote_member(user_id: str) -> dict:
+    # from mcg
+    data = await req(
+        "enterprise.users.admin.setRegular",
+        form={
+            "user": user_id,
+            "scope_to": "team",
+            "team": TID,
+        },
+        use_enterprise_base=True,
+    )
+    if err := data.get("error") or not data.get("ok"):
+        logger.error(f"promoting error: {err}")
+        return {"error": "unknown"}
+    return {"data": "success"}
 
 
 async def testty(app_id: str):
