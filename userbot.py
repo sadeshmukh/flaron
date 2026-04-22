@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 XOXC = _env("XOXC")
 XOXD = _env("XOXD")
 BASE = _env("BASE_SLACK_API", "https://hackclub.enterprise.slack.com/api/")
-ENTERPRISE_BASE = _env("ENTERPRISE_BASE", "https://hackclub.slack.com/api/")
+ENTERPRISE_BASE = _env("ENTERPRISE_BASE", "https://hackclub.slack.com/")
 EID = _env("EID", "E09V59WQY1E")
 TID = _env("TID", "T0266FRGM")
 USE_WEIRD_TEAM_ROUTE_THING = _env("UWTRT", "false").lower() == "true"
@@ -39,9 +39,9 @@ async def req(
     url = (
         f"{BASE}{path}?{urlencode(params)}"
         if not use_enterprise_base
-        else f"{ENTERPRISE_BASE}{path}?{urlencode(params)}"
+        else f"{ENTERPRISE_BASE}api/{path}?{urlencode(params)}"
     )
-    logger.info(url)
+    logger.debug(f"requesting {url} with form {form}")
     form.update({"token": quote(XOXC)})
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(url, data=form) as res:
@@ -218,14 +218,36 @@ async def userboot():
     return data
 
 
-async def appcommands():
+async def fetch_commands(dump=False) -> dict:
     data = await req("client.appCommands")
     if err := data.get("error"):
         logger.error(f"app commands error: {err}")
         print(data)
         return {"error": "unknown"}
-    json.dump(data, open("appcommands.json", "w"), indent=2)
-    return data
+    if dump:
+        json.dump(data, open("appcommands.json", "w"), indent=2)
+    try:
+        commands = data.get("commands", [])
+        # things we care about{name, usage, desc, type: core/app, app_name, app (is id), icons}
+        # name is e.g. /abcd
+        return {
+            "data": {
+                cmd.get("name").strip("/"): {
+                    "name": cmd.get("name"),
+                    "usage": cmd.get("usage"),
+                    "description": cmd.get("desc"),
+                    "app_name": cmd.get("app_name"),
+                    "app_id": cmd.get("app"),
+                    "icons": cmd.get("icons", []),
+                }
+                for cmd in commands
+                if cmd.get("type") == "app"
+            }
+        }
+
+    except Exception as err:
+        logger.error(f"app commands parsing error: {err}")
+        return {"error": "unknown"}
 
 
 async def who_installed_it(app_id: str) -> list:
@@ -254,6 +276,38 @@ async def who_installed_it(app_id: str) -> list:
                 }
                 for auth in authorizations
             ]
+
+
+async def app_info(app_id: str, bot_id: str = "") -> dict:
+    data = await req(
+        "apps.profile.get",
+        params={"app": app_id, "bot": bot_id} if bot_id else {"app": app_id},
+    )
+    if err := data.get("error"):
+        logger.error(f"app info error: {err}")
+        return {"error": "unknown"}
+    try:
+
+        profile = data.get("app_profile", {})
+        # fields I'm going to show: id, name, desc, long_desc, date_installed, icons, bot_user: {id, username, memberships_count}
+        # print(profile.keys())
+        ret = {
+            "app_id": profile.get("id"),
+            "name": profile.get("name"),
+            "tagline": profile.get("desc"),
+            "description": profile.get("long_desc"),
+            "date_installed": profile.get("date_installed"),  # unix timestamp
+            "icons": profile.get("icons", {}),
+        }
+        if bot_id:
+            ret["user_id"] = profile.get("bot_user", {}).get("id")
+            ret["username"] = profile.get("bot_user", {}).get("username")
+            ret["count_in"] = profile.get("bot_user", {}).get("memberships_count")
+        return {"data": ret}
+
+    except:
+        logger.error(f"app info parsing error: {err}")
+        return {"error": "unknown"}
 
 
 async def user_info_edge(id: str) -> dict:
@@ -343,4 +397,4 @@ async def testty(app_id: str):
 if __name__ == "__main__":
     import asyncio
 
-    print(asyncio.run(testty("A0ADCQX31B2")))
+    asyncio.run(who_installed_it("A0ADCQX31B2"))
