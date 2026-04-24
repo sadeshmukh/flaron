@@ -14,6 +14,7 @@ load_dotenv()
 from private import cid_by_name_private, cname_private
 from utils import _env
 from userbot import (
+    emoji_info,
     fetch_commands,
     channel_counts,
     channel_info,
@@ -149,11 +150,16 @@ async def _app_info(id: str):
     return data if data else {"error": "nonexistent"}
 
 
-@app.get("/promote/{id}")
-async def promote(id: str):
-    if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
-        return {"error": "invalid user ID"}
-    return await promote_member(id)
+@app.get("/emoji/{name}")
+async def emoji(name: str):
+    return await emoji_info(name)
+
+
+# @app.get("/promote/{id}")
+# async def promote(id: str):
+#     if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
+#         return {"error": "invalid user ID"}
+#     return await promote_member(id)
 
 
 if __name__ == "__main__":

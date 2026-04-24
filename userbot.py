@@ -94,6 +94,36 @@ async def edge(path: str, jsondata: dict = {}, params: dict[str, str] = {}) -> d
 # endregion primitives
 
 
+async def emoji_info(name: str) -> dict:
+    data = await req(
+        "emoji.adminList",
+        form={"page": 1, "count": 100, "queries": json.dumps([name]), "user_ids": "[]"},
+        override_XOXC=_env("XOXC_PROMOTE", XOXC),
+        override_XOXD=_env("XOXD_PROMOTE", XOXD),
+    )
+    if err := data.get("error", ""):
+        logger.error(f"emoji info error: {err}")
+        return {"error": "unknown"}
+    try:
+        emojis = [e for e in data.get("emoji", []) if e.get("name") == name]
+        if not emojis or emojis[0].get("name") != name:
+            return {"error": "not found"}
+        emoji = emojis[0]
+        return {
+            "data": {
+                "url": emoji.get("url"),
+                "is_alias": emoji.get("is_alias"),
+                "canonical": emoji.get("alias_for", ""),
+                "user_id": emoji.get("user_id"),
+                "user_display": emoji.get("user_display_name"),
+                "synonyms": emoji.get("synonyms", []),
+            }
+        }
+    except Exception as err:
+        logger.error(f"emoji info parsing error: {err}")
+        return {"error": "unknown"}
+
+
 async def channel_managers(channel_id: str) -> dict:
     data = await req(
         "admin.roles.entity.listAssignments", form={"entity_id": channel_id}
@@ -799,7 +829,7 @@ if __name__ == "__main__":
     import asyncio
 
     # asyncio.run(list_mcgs())
-    asyncio.run(promote_em_all())
+    print(asyncio.run(emoji_info("sparkling_fart")))
 
 
 # endregion
