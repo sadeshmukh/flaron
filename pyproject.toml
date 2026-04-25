@@ -9,5 +9,6 @@ dependencies = [
     "fastapi>=0.136.0",
     "python-dotenv==1.0.0",
     "rich>=15.0.0",
+    "slack-bolt>=1.28.0",
     "uvicorn>=0.44.0",
 ]

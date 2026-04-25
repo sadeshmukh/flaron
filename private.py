@@ -24,3 +24,6 @@ async def cid_by_name_private(name: str) -> dict:
                 return {"error": "channel doesn't exist"}
 
             return data
+
+
+# TODO: bulk? fuzzer?
