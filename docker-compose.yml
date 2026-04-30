@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    command: uv run main.py
+    restart: unless-stopped
+
+  bot:
+    build: .
+    command: uv run bot.py
+    restart: unless-stopped
