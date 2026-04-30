@@ -15,6 +15,7 @@ if __name__ == "__main__":
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
+from private import cid_by_name_private, cname_private
 from userbot import app_info, emoji_info, install_info, user_info_edge
 from utils import _env
 
@@ -114,6 +115,38 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
         )
     else:
         await respond("???")
+
+
+# message shortcut
+@app.shortcut("reveal_channels")
+async def reveal_channels(
+    ack: AsyncAck, shortcut: dict, client: AsyncWebClient, respond: AsyncRespond
+):
+    await ack()
+    logging.info(
+        (c := shortcut.get("channel", {}).get("name"))
+        + ":"
+        + (await cid_by_name_private(c)).get("id", "unknown")
+    )
+
+    content = shortcut.get("message", {}).get("text", "")
+    if not content:
+        return await respond(
+            text="Couldn't find any content in the message :(",
+            response_type="ephemeral",
+        )
+    # cids -> names, render as #name?
+    cids = re.findall(r"C[A-Z0-9]{6,}", content)
+    if not cids:
+        return await respond(
+            text="Couldn't find any channel IDs in the message :(",
+            response_type="ephemeral",
+        )
+    names = {(await cname_private(cid)).get("name", "unknown") for cid in cids}  # type: ignore
+    await respond(
+        text="Channels mentioned: " + ", ".join(f"`#{name}`" for name in names),
+        response_type="ephemeral",
+    )
 
 
 async def main():
