@@ -22,7 +22,7 @@ from userbot import (
     name_to_id,
     promote_member,
     user_info_edge,
-    who_installed_it,
+    install_info,
     app_info,
 )
 
@@ -130,7 +130,13 @@ async def user_info(id: str):
         data["user"] = userinfo.get("data", {})
     if userinfo.get("data", {}).get("is_bot"):
         app_id = userinfo.get("data", {}).get("app_id")
-        data["installers"] = await who_installed_it(app_id) if app_id else []
+        install_info_data = await install_info(app_id)
+        if install_info_data.get("error"):
+            data["installers"] = []
+        else:
+            data["installers"] = install_info_data.get("data", {}).get("installers", [])
+            data["creator_id"] = install_info_data.get("data", {}).get("creator", {})
+
     return data
 
 
@@ -139,8 +145,10 @@ async def _app_info(id: str):
     if not re.fullmatch(r"A[A-Z0-9]{6,}", id):
         return {"error": "invalid app ID"}
     data = {}
-    if (installedby := await who_installed_it(id)) is not None:
+    if (install_info_data := (await install_info(id)).get("data", {})) is not None:
+        installedby = install_info_data.get("installers", [])
         data["installers"] = installedby
+        data["creator_id"] = install_info_data.get("creator", {})
         data["user"] = (await user_info_edge(installedby[0].get("id"))).get("data", {})
         if (appinfo := await app_info(id, data["user"].get("bot_id"))).get(
             "error"

@@ -95,6 +95,14 @@ async def edge(path: str, jsondata: dict = {}, params: dict[str, str] = {}) -> d
 
 
 async def emoji_info(name: str) -> dict:
+    # issue: adminList SOMETIMES fails to give the actual emoji, so instead we'll fetch the emoji itself to see if it exists first
+    data = await edge("emojis/search", jsondata={"query": name, "count": 1})
+    if err := data.get("error", ""):
+        logger.error(f"emoji search error: {err}")
+        return {"error": "unknown"}  # might be unknown?
+    if not data.get("results", []):
+        return {"error": "not found"}
+
     data = await req(
         "emoji.adminList",
         form={"page": 1, "count": 100, "queries": json.dumps([name]), "user_ids": "[]"},
@@ -104,6 +112,7 @@ async def emoji_info(name: str) -> dict:
     if err := data.get("error", ""):
         logger.error(f"emoji info error: {err}")
         return {"error": "unknown"}
+    json.dump(data, open("emojiinfo.json", "w"), indent=2)
     try:
         emojis = [e for e in data.get("emoji", []) if e.get("name") == name]
         if not emojis or emojis[0].get("name") != name:
@@ -293,7 +302,7 @@ async def fetch_commands(dump=False) -> dict:
         return {"error": "unknown"}
 
 
-async def who_installed_it(app_id: str) -> list:
+async def install_info(app_id: str) -> dict:
     headers = {
         "Cookie": f"d={quote(XOXD)}",
         "Accept": "text/html",
@@ -308,17 +317,25 @@ async def who_installed_it(app_id: str) -> list:
                 html,
             )
             if not match:
-                return []
+                return {}
+                # href="/team/U07BLJ1MBEE"
+            installer = re.search(r'href="/team/([A-Z0-9]+)"', html)
+
             props = json.loads(match.group(1).replace("&quot;", '"'))
             authorizations = props.get("authorizations", [])
-            return [
-                {
-                    "id": auth.get("encodedUserLink"),
-                    "name": auth.get("userDisplayName"),
-                    "access": auth.get("fullDescription"),
+            return {
+                "data": {
+                    "creator": installer.group(1) if installer else "unknown",
+                    "installers": [
+                        {
+                            "id": auth.get("encodedUserLink"),
+                            "name": auth.get("userDisplayName"),
+                            "access": auth.get("fullDescription"),
+                        }
+                        for auth in authorizations
+                    ],
                 }
-                for auth in authorizations
-            ]
+            }
 
 
 async def app_info(app_id: str, bot_id: str = "") -> dict:
@@ -825,11 +842,20 @@ async def testty(app_id: str):
         json.dump(result, open("automount.json", "w"), indent=2)
 
 
+async def wtf():
+    data = await req("search.autocomplete.offlineFeatures")
+    if err := data.get("error"):
+        logger.error(f"autocomplete features error: {err}")
+        return {"error": "unknown"}
+    json.dump(data, open("autocomplete.json", "w"), indent=2)
+    return data
+
+
 if __name__ == "__main__":
     import asyncio
 
     # asyncio.run(list_mcgs())
-    print(asyncio.run(emoji_info("sparkling_fart")))
+    # print(asyncio.run(wtf2()))
 
 
 # endregion
