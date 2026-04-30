@@ -126,7 +126,7 @@ async def reveal_channels(
     logging.info(
         (c := shortcut.get("channel", {}).get("name"))
         + ":"
-        + (await cid_by_name_private(c)).get("id", "unknown")
+        + (shortcut.get("channel", {}).get("id")
     )
 
     content = shortcut.get("message", {}).get("text", "")
