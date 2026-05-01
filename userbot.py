@@ -179,7 +179,10 @@ async def channel_info(channel_id: str) -> dict:
         logger.error(f"channel info error: {err}")
         return {"error": err}
     try:
-        channel = data.get("results", [])[0]
+        cdata = data.get("results", [])
+        if not cdata:
+            return {"error": "private or nonexistent"}
+        channel = cdata[0]
         # creator, name, previous_names, created, is_archived
         # purpose.value, topic.value
         # properties - tbd, but has: tabz, tabs (which look identical?)
@@ -311,31 +314,45 @@ async def install_info(app_id: str) -> dict:
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as res:
             html = await res.text()
+            ret = {}
 
-            match = re.search(
+            auth_matches = re.search(
                 r'data-automount-component="AppDirectoryAuthorizations"\s+data-automount-props="([^"]+)"',
                 html,
             )
-            if not match:
+            if not auth_matches:
                 return {}
-                # href="/team/U07BLJ1MBEE"
-            installer = re.search(r'href="/team/([A-Z0-9]+)"', html)
 
-            props = json.loads(match.group(1).replace("&quot;", '"'))
+            creator = re.search(r'href="/team/([A-Z0-9]+)"', html)
+            ret["creator"] = creator.group(1) if creator else "unknown"
+
+            props = json.loads(auth_matches.group(1).replace("&quot;", '"'))
             authorizations = props.get("authorizations", [])
-            return {
-                "data": {
-                    "creator": installer.group(1) if installer else "unknown",
-                    "installers": [
-                        {
-                            "id": auth.get("encodedUserLink"),
-                            "name": auth.get("userDisplayName"),
-                            "access": auth.get("fullDescription"),
-                        }
-                        for auth in authorizations
-                    ],
+            ret["installers"] = [
+                {
+                    "id": auth.get("encodedUserLink"),
+                    "name": auth.get("userDisplayName"),
+                    "access": auth.get("fullDescription"),
                 }
-            }
+                for auth in authorizations
+            ]
+
+            features_matches = re.search(
+                r'data-automount-component="AppDirectoryFeatures"\s+data-automount-props="([^"]+)"',
+                html,
+            )
+
+            if features_matches:
+                features_props = json.loads(
+                    features_matches.group(1).replace("&quot;", '"')
+                )
+                if slashes := features_props.get("slashCommands", {}):
+                    ret["slash_commands"] = slashes
+                if messageShortcuts := features_props.get("messageShortcuts", []):
+                    ret["message_shortcuts"] = messageShortcuts
+                if globalShortcuts := features_props.get("globalShortcuts", []):
+                    ret["global_shortcuts"] = globalShortcuts
+            return {"data": ret}
 
 
 async def app_info(app_id: str, bot_id: str = "") -> dict:
@@ -842,12 +859,29 @@ async def testty(app_id: str):
         json.dump(result, open("automount.json", "w"), indent=2)
 
 
+route = "admin.home.attritionStatus.get"
+
+
 async def wtf():
-    data = await req("search.autocomplete.offlineFeatures")
+    data = await req(
+        route,
+        override_XOXC=_env("XOXC_PROMOTE", XOXC),
+        override_XOXD=_env("XOXD_PROMOTE", XOXD),
+        form={"entity_id": EID},
+    )
     if err := data.get("error"):
-        logger.error(f"autocomplete features error: {err}")
+        logger.error(f"error: {err}")
         return {"error": "unknown"}
-    json.dump(data, open("autocomplete.json", "w"), indent=2)
+    # json.dump(data, open("getadminsections.json", "w"), indent=2)
+    return data
+
+
+async def wtf2():
+    data = await req(route)
+    if err := data.get("error"):
+        logger.error(f"error: {err}")
+        return {"error": "unknown"}
+    # json.dump(data, open("getadminsections.json", "w"), indent=2)
     return data
 
 
@@ -855,7 +889,9 @@ if __name__ == "__main__":
     import asyncio
 
     # asyncio.run(list_mcgs())
-    # print(asyncio.run(wtf2()))
+    # print(asyncio.run(testty("A0ATTN5H7S9")))
+    print(asyncio.run(wtf()))
+    print(asyncio.run(wtf2()))
 
 
 # endregion

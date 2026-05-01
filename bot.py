@@ -16,7 +16,7 @@ if __name__ == "__main__":
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
 from private import cid_by_name_private, cname_private
-from userbot import app_info, emoji_info, install_info, user_info_edge
+from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
 from utils import _env
 
 
@@ -41,7 +41,9 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             "Usage:\n"
             f"`{BASE_CMD} <command> [args]`\n\n"
             "Available commands:\n"
-            "- `ping`: Responds with a greeting message.\n"
+            "- `ping`\n"
+            "- `emoji <name>`: Fetches information about a specific emoji.\n"
+            "- `app @bot`: Fetches information about a specific bot application.\n"
         )
 
     def resp_err(err: str):
@@ -66,7 +68,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             else ""
         )
         await respond(
-            f"*{info.get('name')} (:{info.get('name')}:)*\n"
+            f"*{emoji} (:{emoji}:)*\n"
             + (
                 f"Alias for :{info.get('alias_for')}:"
                 if info.get("alias_for")
@@ -124,7 +126,7 @@ async def reveal_channels(
 ):
     await ack()
     logging.info(
-        (c := shortcut.get("channel", {}).get("name"))
+        (c := shortcut.get("user", {}).get("name"))
         + ":"
         + (shortcut.get("channel", {}).get("id"))
     )
@@ -142,7 +144,14 @@ async def reveal_channels(
             text="Couldn't find any channel IDs in the message :(",
             response_type="ephemeral",
         )
-    names = {(await cname_private(cid)).get("name", "unknown") for cid in cids}  # type: ignore
+
+    async def cname(cid) -> str:
+        cinfo = await channel_info(cid)
+        if cinfo.get("error"):
+            return (await cname_private(cid)).get("name", "unknown")
+        return cinfo.get("data", {}).get("name", "unknown")
+
+    names = [await cname(cid) for cid in cids]  # type: ignore
     await respond(
         text="Channels mentioned: " + ", ".join(f"`#{name}`" for name in names),
         response_type="ephemeral",
