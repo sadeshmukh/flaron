@@ -120,6 +120,8 @@ async def channels_by_name(
     names: list[str], x_admin_key: str | None = Header(default=None)
 ):
     bypass = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
+    if bypass:
+        logger.info(f"BYPASS {names}")
     return await bulk_cname_to_cid(names, bypass_cache=bypass)
 
 

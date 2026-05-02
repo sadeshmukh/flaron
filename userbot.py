@@ -483,9 +483,9 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
             uncached.append(name)
 
     if uncached:
-        t = await format(" ".join([f"<#{name}>" for name in uncached]))
+        t = await format(" ".join([f"#{name}" for name in uncached]))
         fetched = {}
-        for name, retid in zip(uncached, re.findall(r"<#(C\w+)>", t)):
+        for name, retid in zip(uncached, re.findall(r"<#(C\w+)(?:\|[^>]*)?>", t)):
             fetched[name] = retid
         cache_channels({v: k for k, v in fetched.items()})
         ret.update(fetched)
