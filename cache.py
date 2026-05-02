@@ -61,6 +61,10 @@ def get_cached_channels(ids: list[str]) -> dict[str, str | None]:
     return {id: _id_to_name.get(id) for id in ids}
 
 
+def get_all_cached_name_to_id() -> dict[str, str]:
+    return dict(_name_to_id)
+
+
 def invalidate_channel(id: str):
     name = _id_to_name.pop(id, None)
     if name:

@@ -13,7 +13,7 @@ load_dotenv()
 
 from private import cid_by_name_private, cname_private
 from utils import _env
-from cache import init_cache
+from cache import init_cache, get_all_cached_name_to_id, invalidate_channel
 from userbot import (
     emoji_info,
     fetch_commands,
@@ -167,6 +167,23 @@ async def _app_info(id: str):
             data["app"] = appinfo.get("data", {})
 
     return data if data else {"error": "nonexistent"}
+
+
+@app.post("/admin/revalidate-channels")
+async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
+    if x_admin_key is None or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    snapshot = get_all_cached_name_to_id()
+    if not snapshot:
+        return {"removed": []}
+    fresh = await bulk_cname_to_cid(list(snapshot.keys()), bypass_cache=True)
+    removed = []
+    for name, cached_id in snapshot.items():
+        fresh_id = fresh.get(name)
+        if fresh_id != cached_id:
+            invalidate_channel(cached_id)
+            removed.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
+    return {"removed": removed}
 
 
 @app.get("/emoji/{name}")
