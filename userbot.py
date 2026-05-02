@@ -470,13 +470,13 @@ async def format(text: str) -> str:
         return text
 
 
-async def bulk_cname_to_cid(names: list[str]) -> dict:
+async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dict:
     from cache import get_cached_channel_id, cache_channels
 
     ret = {}
     uncached = []
     for name in names:
-        if cached := get_cached_channel_id(name):
+        if not bypass_cache and (cached := get_cached_channel_id(name)):
             ret[name] = cached
         else:
             uncached.append(name)

@@ -1,7 +1,7 @@
 import re
 import aiohttp
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 import uvicorn
 import sys
 import os
@@ -115,8 +115,9 @@ async def channel_by_name(name: str):
 
 
 @app.post("/cnames")
-async def channels_by_name(names: list[str]):
-    return await bulk_cname_to_cid(names)
+async def channels_by_name(names: list[str], x_admin_key: str | None = Header(default=None)):
+    bypass = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
+    return await bulk_cname_to_cid(names, bypass_cache=bypass)
 
 
 @app.get("/channel/{id}")
