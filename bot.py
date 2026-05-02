@@ -152,6 +152,13 @@ async def reveal_channels(
         return cinfo.get("data", {}).get("name", cid)
 
     names = [await cname(cid) for cid in cids]  # type: ignore
+    if thread_ts := shortcut.get("message", {}).get("ts"):
+        await respond(
+            text="Channels mentioned: " + ", ".join(f"`#{name}`" for name in names),
+            response_type="ephemeral",
+            thread_ts=thread_ts,
+        )
+        return
     await respond(
         text="Channels mentioned: " + ", ".join(f"`#{name}`" for name in names),
         response_type="ephemeral",
