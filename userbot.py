@@ -432,6 +432,66 @@ async def user_info_edge(id: str) -> dict:
         return {"error": "unknown"}
 
 
+async def format(text: str) -> str:
+    data = await req(
+        "blocks.format",
+        form={
+            "message": json.dumps(
+                {
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": text,
+                            },
+                        }
+                    ]
+                }
+            )
+        },
+        # params={"slack_route": f"{EID}:{TID}"},
+        # use_enterprise_base=True,
+        override_XOXC=_env("XOXC_PROMOTE", XOXC),
+        override_XOXD=_env("XOXD_PROMOTE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"formatting error: {err}")
+        return text
+    try:
+        return (
+            data.get("message", {})
+            .get("blocks", [])[0]
+            .get("text", {})
+            .get("text", "failed")
+        )
+    except Exception as err:
+        logger.error(f"formatting parsing error: {err}")
+        return text
+
+
+async def bulk_cname_to_cid(names: list[str]) -> dict:
+    from cache import get_cached_channel_id, cache_channels
+
+    ret = {}
+    uncached = []
+    for name in names:
+        if cached := get_cached_channel_id(name):
+            ret[name] = cached
+        else:
+            uncached.append(name)
+
+    if uncached:
+        t = await format(" ".join([f"<#{name}>" for name in uncached]))
+        fetched = {}
+        for name, retid in zip(uncached, re.findall(r"<#(C\w+)>", t)):
+            fetched[name] = retid
+        cache_channels({v: k for k, v in fetched.items()})
+        ret.update(fetched)
+
+    return ret
+
+
 async def promote_member(user_id: str) -> dict:
     # from mcg
     DO_NOT_PROMOTE = ["U07CAPBB9B5", "U07NKS9S8GZ"]
@@ -890,8 +950,18 @@ if __name__ == "__main__":
 
     # asyncio.run(list_mcgs())
     # print(asyncio.run(testty("A0ATTN5H7S9")))
-    print(asyncio.run(wtf()))
-    print(asyncio.run(wtf2()))
+    print(
+        asyncio.run(
+            bulk_cname_to_cid(
+                [
+                    "#terrorist-financing",
+                    "#terrorist-financing",
+                    "#terrorist-financing",
+                    "#terrorist-financing",
+                ]
+            )
+        )
+    )
 
 
 # endregion

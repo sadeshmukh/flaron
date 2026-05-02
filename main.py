@@ -19,7 +19,7 @@ from userbot import (
     channel_counts,
     channel_info,
     channel_managers,
-    name_to_id,
+    bulk_cname_to_cid,
     promote_member,
     user_info_edge,
     install_info,
@@ -105,13 +105,18 @@ async def channel_by_id(id: str):
 
 @app.get("/cname/{name}")
 async def channel_by_name(name: str):
-    data = await name_to_id(name)
-    if not (err := data.get("error")):
-        return await channel(data.get("data", {}).get("id"))
+    result = await bulk_cname_to_cid([name])
+    if id := result.get(name):
+        return await channel(id)
     id = (await cid_by_name_private(name)).get("id", "")
     if not id:
         return {"error": "nonexistent"}
     return await channel(id)
+
+
+@app.post("/cnames")
+async def channels_by_name(names: list[str]):
+    return await bulk_cname_to_cid(names)
 
 
 @app.get("/channel/{id}")
