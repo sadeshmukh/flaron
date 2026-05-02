@@ -148,8 +148,8 @@ async def reveal_channels(
     async def cname(cid) -> str:
         cinfo = await channel_info(cid)
         if cinfo.get("error"):
-            return (await cname_private(cid)).get("name", "unknown")
-        return cinfo.get("data", {}).get("name", "unknown")
+            return (await cname_private(cid)).get("name", cid)
+        return cinfo.get("data", {}).get("name", cid)
 
     names = [await cname(cid) for cid in cids]  # type: ignore
     await respond(
