@@ -13,6 +13,7 @@ load_dotenv()
 
 from private import cid_by_name_private, cname_private
 from utils import _env
+from cache import init_cache
 from userbot import (
     emoji_info,
     fetch_commands,
@@ -26,7 +27,6 @@ from userbot import (
     app_info,
 )
 
-
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 logger = logging.getLogger("main")
 
@@ -36,6 +36,7 @@ commands: dict = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global commands
+    init_cache()
     if (data := await fetch_commands()).get("error"):
         logger.error(f"app commands error: {data.get('error')}")
         exit(1)
@@ -115,7 +116,9 @@ async def channel_by_name(name: str):
 
 
 @app.post("/cnames")
-async def channels_by_name(names: list[str], x_admin_key: str | None = Header(default=None)):
+async def channels_by_name(
+    names: list[str], x_admin_key: str | None = Header(default=None)
+):
     bypass = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
     return await bulk_cname_to_cid(names, bypass_cache=bypass)
 

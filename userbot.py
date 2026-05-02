@@ -13,7 +13,6 @@ from rich.progress import (
     TextColumn,
 )
 
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
@@ -433,6 +432,7 @@ async def user_info_edge(id: str) -> dict:
 
 
 async def format(text: str) -> str:
+    logging.info(f"formatting: {text}")
     data = await req(
         "blocks.format",
         form={
@@ -459,6 +459,7 @@ async def format(text: str) -> str:
         logger.error(f"formatting error: {err}")
         return text
     try:
+        logging.info(f"formatted: {data}")
         return (
             data.get("message", {})
             .get("blocks", [])[0]
