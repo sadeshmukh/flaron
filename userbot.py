@@ -1,6 +1,9 @@
 import json
 import re
 import sys
+import time
+
+import asyncio
 import aiohttp
 import logging
 from utils import _env
@@ -471,6 +474,54 @@ async def format(text: str) -> str:
         return text
 
 
+async def _resolve_channel_names(names: list[str]) -> dict[str, str]:
+    if not names:
+        return {}
+    data = await req(
+        "blocks.format",
+        form={
+            "message": json.dumps(
+                {
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": " ".join(f"#{n}" for n in names),
+                            },
+                        }
+                    ]
+                }
+            )
+        },
+        override_XOXC=_env("XOXC_PROMOTE", XOXC),
+        override_XOXD=_env("XOXD_PROMOTE", XOXD),
+    )
+    if err := data.get("error"):
+        if err == "invalid_message" and len(names) > 1:
+
+            mid = len(names) // 2
+            left, right = await asyncio.gather(
+                _resolve_channel_names(names[:mid]),
+                _resolve_channel_names(names[mid:]),
+            )
+            return {**left, **right}
+        logger.error(f"channel name resolution error ({len(names)} names): {err}")
+        return {}
+    try:
+        text = (
+            data.get("message", {}).get("blocks", [])[0].get("text", {}).get("text", "")
+        )
+        result = {}
+        for name, token in zip(names, text.split()):
+            if m := re.search(r"<#(C\w+)(?:\|[^>]*)?>", token):
+                result[name] = m.group(1)
+        return result
+    except Exception as err:
+        logger.error(f"channel name resolution parsing error: {err}")
+        return {}
+
+
 async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dict:
     from cache import get_cached_channel_id, cache_channels
 
@@ -483,11 +534,7 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
             uncached.append(name)
 
     if uncached:
-        t = await format(" ".join([f"#{name}" for name in uncached]))
-        fetched = {}
-        for name, token in zip(uncached, t.split()):
-            if m := re.search(r"<#(C\w+)(?:\|[^>]*)?>", token):
-                fetched[name] = m.group(1)
+        fetched = await _resolve_channel_names(uncached)
         cache_channels({v: k for k, v in fetched.items()})
         ret.update(fetched)
 
@@ -526,7 +573,6 @@ async def promote_member(user_id: str) -> dict:
 
 
 async def list_mcgs():
-    import asyncio
 
     mcgs = []
     cursor_mark = None
@@ -644,7 +690,6 @@ async def list_mcgs():
 
 
 async def promote_em_all():
-    import asyncio
 
     with open("mcgs.json", "r") as f:
         data = json.load(f)
@@ -761,8 +806,6 @@ async def promote_em_all():
 
     total = len(mcgs_sorted)
     remaining = [m for m in mcgs_sorted if m["id"] not in promoted_ids]
-
-    import time
 
     batch_times = []
 

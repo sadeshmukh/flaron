@@ -10,6 +10,10 @@ redis = Redis.from_env()
 _id_to_name: dict[str, str] = {}
 _name_to_id: dict[str, str] = {}
 
+_failed_channels: set[str] = set()
+_failed_channels_dirty: bool = False
+FAILED_CHANNELS_KEY = "failed_channels"
+
 
 def init_cache():
     cursor = 0
@@ -25,6 +29,9 @@ def init_cache():
                     _name_to_id[value] = cid
         if cursor == 0:
             break
+    failed = redis.smembers(FAILED_CHANNELS_KEY)
+    if failed:
+        _failed_channels.update(failed)
 
 
 def cache_channel(id: str, name: str):
@@ -63,6 +70,39 @@ def get_cached_channels(ids: list[str]) -> dict[str, str | None]:
 
 def get_all_cached_name_to_id() -> dict[str, str]:
     return dict(_name_to_id)
+
+
+def mark_channel_failed(id: str):
+    global _failed_channels_dirty
+    if id not in _failed_channels:
+        _failed_channels.add(id)
+        _failed_channels_dirty = True
+
+
+def unmark_channel_failed(id: str):
+    if id in _failed_channels:
+        _failed_channels.discard(id)
+        redis.srem(FAILED_CHANNELS_KEY, id)
+
+
+def is_channel_failed(id: str) -> bool:
+    return id in _failed_channels
+
+
+def sync_failed_channels():
+    global _failed_channels_dirty
+    if not _failed_channels_dirty:
+        return
+    if _failed_channels:
+        redis.sadd(FAILED_CHANNELS_KEY, *_failed_channels)
+    _failed_channels_dirty = False
+
+
+async def failed_channels_sync_loop(interval: int = 60):
+    import asyncio
+    while True:
+        await asyncio.sleep(interval)
+        sync_failed_channels()
 
 
 def invalidate_channel(id: str):

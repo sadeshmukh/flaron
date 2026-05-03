@@ -1,5 +1,7 @@
 import re
 import aiohttp
+import asyncio
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header
 import uvicorn
@@ -13,7 +15,15 @@ load_dotenv()
 
 from private import cid_by_name_private, cname_private
 from utils import _env
-from cache import init_cache, get_all_cached_name_to_id, invalidate_channel
+from cache import (
+    init_cache,
+    get_all_cached_name_to_id,
+    invalidate_channel,
+    mark_channel_failed,
+    unmark_channel_failed,
+    is_channel_failed,
+    failed_channels_sync_loop,
+)
 from userbot import (
     emoji_info,
     fetch_commands,
@@ -35,6 +45,7 @@ commands: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     global commands
     init_cache()
     if (data := await fetch_commands()).get("error"):
@@ -44,7 +55,9 @@ async def lifespan(app: FastAPI):
     if not commands:
         logger.warning("commands not found, oop")
         exit(1)
+    sync_task = asyncio.create_task(failed_channels_sync_loop())
     yield
+    sync_task.cancel()
 
 
 # struct: {command name -> {name, usage, description, app_name, app_id,
@@ -78,10 +91,15 @@ async def ccount(id: str):
 async def channel(id: str):
     ret = {"id": id}
 
+    if is_channel_failed(id):
+        ret["error"] = "nonexistent"
+        return ret
+
     if (
         "error" in (managers := await channel_managers(id))
         and managers["error"] == "nonexistent"
     ):
+        mark_channel_failed(id)
         ret["error"] = "nonexistent"
         return ret
 
@@ -182,6 +200,7 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
         fresh_id = fresh.get(name)
         if fresh_id != cached_id:
             invalidate_channel(cached_id)
+            unmark_channel_failed(cached_id)
             removed.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
     return {"removed": removed}
 
