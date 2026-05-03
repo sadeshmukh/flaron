@@ -530,7 +530,11 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
 
     ret = {}
     uncached = []
-    for name in names:
+    for name in (
+        n.strip("# ")
+        for n in names
+        if all(c.isalnum() or c in "_-" for c in n.strip("# "))
+    ):
         if not bypass_cache and (cached := get_cached_channel_id(name)):
             ret[name] = cached
         else:
