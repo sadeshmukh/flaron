@@ -116,10 +116,14 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             )
         )
     elif cmd == "search":
-        if len(args) < 2:
-            return await respond(f"search key q")
-        key, query = args[0], args[1]
-        if key != ADMIN_KEY:
+        if len(args) < 1:
+            return await respond(f"search ~key~ q")
+        query = args[0]
+        if command.get("user_id") != "U08PUHSMW4V":
+            logging.info("unauthorized: " + command.get("user_id", ""))
+            if not command.get("user_id"):
+                logging.warning("I love testing in prod: " + str(command))
+
             return await respond("who do you think you are")
         query_lower = query.lower()
         all_channels = get_all_cached_name_to_id()
