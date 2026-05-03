@@ -7,7 +7,6 @@ from slack_bolt.async_app import AsyncApp, AsyncAck, AsyncRespond
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
@@ -15,10 +14,10 @@ if __name__ == "__main__":
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
+from cache import get_all_cached_name_to_id
 from private import cid_by_name_private, cname_private
 from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
 from utils import _env
-
 
 user_client = AsyncWebClient(token=_env("XOXP"))
 
@@ -28,6 +27,7 @@ app = AsyncApp(
 
 
 BASE_CMD = "/" + _env("BASE_CMD").lstrip("/")
+ADMIN_KEY = _env("ADMIN_KEY")
 
 error_message = lambda err: "Oh no! Looks like something went wrong: " + err
 
@@ -115,6 +115,28 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 else ""
             )
         )
+    elif cmd == "search":
+        if len(args) < 2:
+            return await respond(f"search key q")
+        key, query = args[0], args[1]
+        if key != ADMIN_KEY:
+            return await respond("who do you think you are")
+        query_lower = query.lower()
+        all_channels = get_all_cached_name_to_id()
+        matches = [
+            (name, cid)
+            for name, cid in all_channels.items()
+            if query_lower in name.lower()
+        ]
+        if not matches:
+            return await respond(f"none matching `{query}`.")
+        matches.sort(key=lambda x: x[0])
+        lines = [f"`#{name}` ({cid})" for name, cid in matches[:50]]
+        suffix = f"\n_…and {len(matches) - 50} more_" if len(matches) > 50 else ""
+        await respond(
+            f"*{len(matches)} match(es) for `{query}`:*\n" + "\n".join(lines) + suffix
+        )
+
     else:
         await respond("???")
 
