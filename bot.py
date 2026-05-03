@@ -145,25 +145,34 @@ async def reveal_channels(
     ack: AsyncAck, shortcut: dict, client: AsyncWebClient, respond: AsyncRespond
 ):
     await ack()
-    logging.info(
-        (c := shortcut.get("user", {}).get("name"))
-        + ":"
-        + (shortcut.get("channel", {}).get("id"))
-    )
+    channel_id = shortcut.get("channel", {}).get("id")
+    user_id = shortcut.get("user", {}).get("id")
+    logging.info(f"{shortcut.get('user', {}).get('name')}:{channel_id}")
 
-    content = shortcut.get("message", {}).get("text", "")
+    message = shortcut.get("message", {})
+    content = message.get("text", "")
+    thread_ts = message.get("thread_ts") or message.get("ts")
+
+    async def ephemeral(text: str):
+        try:
+            await client.chat_postEphemeral(
+                channel=channel_id,
+                user=user_id,
+                text=text,
+                thread_ts=thread_ts,
+            )
+        except Exception as e:
+            logging.info(
+                f"failed to ephem channel {channel_id} in reveal_channels: {e}"
+            )
+            await respond(text)
+
     if not content:
-        return await respond(
-            text="Couldn't find any content in the message :(",
-            response_type="ephemeral",
-        )
-    # cids -> names, render as #name?
-    cids = re.findall(r"C[A-Z0-9]{6,}", content)
+        return await ephemeral("Couldn't find any content in the message :(")
+
+    cids = list(dict.fromkeys(re.findall(r"C[A-Z0-9]{6,}", content)))
     if not cids:
-        return await respond(
-            text="Couldn't find any channel IDs in the message :(",
-            response_type="ephemeral",
-        )
+        return await ephemeral("Couldn't find any channel IDs in the message :(")
 
     async def cname(cid) -> str:
         cinfo = await channel_info(cid)
@@ -171,18 +180,8 @@ async def reveal_channels(
             return (await cname_private(cid)).get("name", cid)
         return cinfo.get("data", {}).get("name", cid)
 
-    names = [await cname(cid) for cid in cids]  # type: ignore
-    if thread_ts := shortcut.get("message", {}).get("ts"):
-        await respond(
-            text="Channels mentioned: " + ", ".join(f"`#{name}`" for name in names),
-            response_type="ephemeral",
-            thread_ts=thread_ts,
-        )
-        return
-    await respond(
-        text="Channels mentioned: " + ", ".join(f"`#{name}`" for name in names),
-        response_type="ephemeral",
-    )
+    names = await asyncio.gather(*[cname(cid) for cid in cids])
+    await ephemeral("Channels mentioned: " + ", ".join(f"`#{name}`" for name in names))
 
 
 async def main():

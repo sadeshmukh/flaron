@@ -8,11 +8,12 @@ if __name__ == "__main__":
 redis = Redis.from_env()
 
 _id_to_name: dict[str, str] = {}
-_name_to_id: dict[str, str] = {}
+_name_to_data: dict[str, dict] = {}  # name -> {"id": str, "private": bool}
 
 _failed_channels: set[str] = set()
 _failed_channels_dirty: bool = False
 FAILED_CHANNELS_KEY = "failed_channels"
+PRIVATE_CHANNEL_IDS_KEY = "private_channel_ids"
 
 
 def init_cache():
@@ -24,22 +25,30 @@ def init_cache():
             values = redis.mget(*id_keys)
             for key, value in zip(id_keys, values):
                 if value is not None:
-                    cid = key[len("channel:") :]
+                    cid = key[len("channel:"):]
                     _id_to_name[cid] = value
-                    _name_to_id[value] = cid
         if cursor == 0:
             break
+
+    private_ids = set(redis.smembers(PRIVATE_CHANNEL_IDS_KEY) or [])
+    for cid, name in _id_to_name.items():
+        _name_to_data[name] = {"id": cid, "private": cid in private_ids}
+
     failed = redis.smembers(FAILED_CHANNELS_KEY)
     if failed:
         _failed_channels.update(failed)
 
 
-def cache_channel(id: str, name: str):
+def cache_channel(id: str, name: str, private: bool = False):
     _id_to_name[id] = name
-    _name_to_id[name] = id
+    _name_to_data[name] = {"id": id, "private": private}
     pipe = redis.pipeline()
     pipe.set(f"channel:{id}", name)
     pipe.set(f"channel_name:{name}", id)
+    if private:
+        pipe.sadd(PRIVATE_CHANNEL_IDS_KEY, id)
+    else:
+        pipe.srem(PRIVATE_CHANNEL_IDS_KEY, id)
     pipe.exec()
 
 
@@ -47,20 +56,32 @@ def get_cached_channel(id: str) -> str | None:
     return _id_to_name.get(id)
 
 
-def get_cached_channel_id(name: str) -> str | None:
-    return _name_to_id.get(name)
+def get_cached_channel_id(name: str) -> dict | None:
+    return _name_to_data.get(name)
 
 
-def cache_channels(mapping: dict[str, str]):
+def cache_channels(mapping: dict[str, dict]):
+    # mapping: {id: {"name": str, "private": bool}}
     if not mapping:
         return
-    for id, name in mapping.items():
-        _id_to_name[id] = name
-        _name_to_id[name] = id
+    private_ids = []
+    public_ids = []
     pipe = redis.pipeline()
-    for id, name in mapping.items():
+    for id, data in mapping.items():
+        name = data["name"]
+        private = data.get("private", False)
+        _id_to_name[id] = name
+        _name_to_data[name] = {"id": id, "private": private}
         pipe.set(f"channel:{id}", name)
         pipe.set(f"channel_name:{name}", id)
+        if private:
+            private_ids.append(id)
+        else:
+            public_ids.append(id)
+    if private_ids:
+        pipe.sadd(PRIVATE_CHANNEL_IDS_KEY, *private_ids)
+    if public_ids:
+        pipe.srem(PRIVATE_CHANNEL_IDS_KEY, *public_ids)
     pipe.exec()
 
 
@@ -84,8 +105,8 @@ def search_cached_channels(query: str) -> dict[str, str]:
     return results
 
 
-def get_all_cached_name_to_id() -> dict[str, str]:
-    return dict(_name_to_id)
+def get_all_cached_name_to_id() -> dict[str, dict]:
+    return dict(_name_to_data)
 
 
 def mark_channel_failed(id: str):
@@ -116,6 +137,7 @@ def sync_failed_channels():
 
 async def failed_channels_sync_loop(interval: int = 60):
     import asyncio
+
     while True:
         await asyncio.sleep(interval)
         sync_failed_channels()
@@ -124,9 +146,10 @@ async def failed_channels_sync_loop(interval: int = 60):
 def invalidate_channel(id: str):
     name = _id_to_name.pop(id, None)
     if name:
-        _name_to_id.pop(name, None)
+        _name_to_data.pop(name, None)
     pipe = redis.pipeline()
     pipe.delete(f"channel:{id}")
     if name:
         pipe.delete(f"channel_name:{name}")
+    pipe.srem(PRIVATE_CHANNEL_IDS_KEY, id)
     pipe.exec()

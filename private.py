@@ -17,13 +17,13 @@ async def cname_private(id: str) -> dict:
                 return {"error": "channel doesn't exist"}
 
             if name := data.get("name"):
-                cache_channel(id, name)
+                cache_channel(id, name, private=True)
             return data
 
 
 async def cid_by_name_private(name: str) -> dict:
     if cached := get_cached_channel_id(name):
-        return {"id": cached}
+        return {"id": cached["id"]}
 
     url = f"{PRIVATECHANNEL_BASE}/fakepostchannel?name={name}"
     async with aiohttp.ClientSession() as session:
@@ -33,7 +33,7 @@ async def cid_by_name_private(name: str) -> dict:
                 return {"error": "channel doesn't exist"}
 
             if id := data.get("id"):
-                cache_channel(id, name)
+                cache_channel(id, name, private=True)
             return data
 
 

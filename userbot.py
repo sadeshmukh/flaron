@@ -474,7 +474,7 @@ async def format(text: str) -> str:
         return text
 
 
-async def _resolve_channel_names(names: list[str]) -> dict[str, str]:
+async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
     if not names:
         return {}
     data = await req(
@@ -499,7 +499,6 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, str]:
     )
     if err := data.get("error"):
         if err == "invalid_message" and len(names) > 1:
-
             mid = len(names) // 2
             left, right = await asyncio.gather(
                 _resolve_channel_names(names[:mid]),
@@ -515,7 +514,11 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, str]:
         result = {}
         for name, token in zip(names, text.split()):
             if m := re.search(r"<#(C\w+)(?:\|[^>]*)?>", token):
-                result[name] = m.group(1)
+                # <#ID|name> = public, <#ID> = private, plain #name = not found
+                result[name] = {
+                    "id": m.group(1),
+                    "private": token == f"<#{m.group(1)}>",
+                }
         return result
     except Exception as err:
         logger.error(f"channel name resolution parsing error: {err}")
@@ -535,7 +538,10 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
 
     if uncached:
         fetched = await _resolve_channel_names(uncached)
-        cache_channels({v: k for k, v in fetched.items()})
+        cache_channels(
+            {v["id"]: {"name": k, "private": v["private"]} for k, v in fetched.items()}
+        )
+
         ret.update(fetched)
 
     return ret

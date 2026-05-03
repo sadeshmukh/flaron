@@ -24,6 +24,7 @@ from cache import (
     unmark_channel_failed,
     is_channel_failed,
     failed_channels_sync_loop,
+    cache_channels,
 )
 from userbot import (
     emoji_info,
@@ -36,6 +37,7 @@ from userbot import (
     user_info_edge,
     install_info,
     app_info,
+    _resolve_channel_names,
 )
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
@@ -44,11 +46,36 @@ logger = logging.getLogger("main")
 commands: dict = {}
 
 
+async def _re_resolve_startup_cache():
+    snapshot = get_all_cached_name_to_id()
+    if not snapshot:
+        return
+    fresh = await _resolve_channel_names(list(snapshot.keys()))
+    to_cache = {}
+    for name, fresh_data in fresh.items():
+        cached_data = snapshot.get(name)
+        if (
+            not cached_data
+            or cached_data["id"] != fresh_data["id"]
+            or cached_data.get("private") != fresh_data["private"]
+        ):
+            if cached_data and cached_data["id"] != fresh_data["id"]:
+                invalidate_channel(cached_data["id"])
+            to_cache[fresh_data["id"]] = {
+                "name": name,
+                "private": fresh_data["private"],
+            }
+    if to_cache:
+        cache_channels(to_cache)
+        logger.info(f"re-resolved {len(to_cache)} channel mappings on startup")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     global commands
     init_cache()
+    await _re_resolve_startup_cache()
     if (data := await fetch_commands()).get("error"):
         logger.error(f"app commands error: {data.get('error')}")
         exit(1)
@@ -126,8 +153,8 @@ async def channel_by_id(id: str):
 @app.get("/cname/{name}")
 async def channel_by_name(name: str):
     result = await bulk_cname_to_cid([name])
-    if id := result.get(name):
-        return await channel(id)
+    if entry := result.get(name):
+        return await channel(entry["id"])
     id = (await cid_by_name_private(name)).get("id", "")
     if not id:
         return {"error": "nonexistent"}
@@ -205,8 +232,10 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
         return {"removed": []}
     fresh = await bulk_cname_to_cid(list(snapshot.keys()), bypass_cache=True)
     removed = []
-    for name, cached_id in snapshot.items():
-        fresh_id = fresh.get(name)
+    for name, cached_data in snapshot.items():
+        cached_id = cached_data["id"]
+        fresh_entry = fresh.get(name)
+        fresh_id = fresh_entry["id"] if fresh_entry else None
         if fresh_id != cached_id:
             invalidate_channel(cached_id)
             unmark_channel_failed(cached_id)
