@@ -68,6 +68,22 @@ def get_cached_channels(ids: list[str]) -> dict[str, str | None]:
     return {id: _id_to_name.get(id) for id in ids}
 
 
+def search_cached_channels(query: str) -> dict[str, str]:
+    q = query.lower()
+    cursor = 0
+    results = {}
+    while True:
+        cursor, keys = redis.scan(cursor, match=f"channel_name:*{q}*", count=500)
+        for key in keys:
+            name = key[len("channel_name:"):]
+            cid = redis.get(key)
+            if cid:
+                results[name] = cid
+        if cursor == 0:
+            break
+    return results
+
+
 def get_all_cached_name_to_id() -> dict[str, str]:
     return dict(_name_to_id)
 

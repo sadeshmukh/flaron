@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
-from cache import get_all_cached_name_to_id
+from cache import init_cache, search_cached_channels
 from private import cid_by_name_private, cname_private
 from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
 from utils import _env
@@ -125,13 +125,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 logging.warning("I love testing in prod: " + str(command))
 
             return await respond("who do you think you are")
-        query_lower = query.lower()
-        all_channels = get_all_cached_name_to_id()
-        matches = [
-            (name, cid)
-            for name, cid in all_channels.items()
-            if query_lower in name.lower()
-        ]
+        matches = list(search_cached_channels(query).items())
         if not matches:
             return await respond(f"none matching `{query}`.")
         matches.sort(key=lambda x: x[0])
@@ -192,6 +186,7 @@ async def reveal_channels(
 
 
 async def main():
+    init_cache()
     auth = await app.client.auth_test()
     user_id = auth.get("user_id")
     if not isinstance(user_id, str) or not user_id:

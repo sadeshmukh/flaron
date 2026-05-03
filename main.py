@@ -18,6 +18,7 @@ from utils import _env
 from cache import (
     init_cache,
     get_all_cached_name_to_id,
+    search_cached_channels,
     invalidate_channel,
     mark_channel_failed,
     unmark_channel_failed,
@@ -191,11 +192,7 @@ async def _app_info(id: str):
 async def search_cache(q: str, x_admin_key: str | None = Header(default=None)):
     if x_admin_key is None or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
-    q_lower = q.lower()
-    all_channels = get_all_cached_name_to_id()
-    matches = {
-        name: cid for name, cid in all_channels.items() if q_lower in name.lower()
-    }
+    matches = search_cached_channels(q)
     return {"query": q, "count": len(matches), "results": matches}
 
 
