@@ -63,7 +63,9 @@ async def _re_resolve_startup_cache():
         fresh_id = fresh[name]["id"] if name in fresh else None
         if fresh_id != cached_id:
             unmark_channel_failed(cached_id)
-            startup_stale.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
+            startup_stale.append(
+                {"name": name, "stale_id": cached_id, "fresh_id": fresh_id}
+            )
     if startup_stale:
         logger.info(f"{len(startup_stale)} stale channel mappings found on startup")
 
@@ -215,7 +217,7 @@ async def _app_info(id: str):
 
 @app.get("/admin/search")
 async def search_cache(q: str, x_admin_key: str | None = Header(default=None)):
-    if x_admin_key is None or x_admin_key != _env("ADMIN_KEY", ""):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
     matches = search_cached_channels(q)
     return {"query": q, "count": len(matches), "results": matches}
@@ -223,7 +225,7 @@ async def search_cache(q: str, x_admin_key: str | None = Header(default=None)):
 
 @app.post("/admin/revalidate")
 async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
-    if x_admin_key is None or x_admin_key != _env("ADMIN_KEY", ""):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
@@ -245,7 +247,7 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
 
 @app.get("/admin/stale")
 async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
-    if x_admin_key is None or x_admin_key != _env("ADMIN_KEY", ""):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
     return {"count": len(startup_stale), "stale": startup_stale}
 
