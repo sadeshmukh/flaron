@@ -44,30 +44,28 @@ logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 logger = logging.getLogger("main")
 
 commands: dict = {}
+startup_stale: list = []
 
 
 async def _re_resolve_startup_cache():
+    global startup_stale
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
         return
+    for cached_data in snapshot.values():
+        invalidate_channel(cached_data["id"])
     fresh = await _resolve_channel_names(list(snapshot.keys()))
-    to_cache = {}
-    for name, fresh_data in fresh.items():
-        cached_data = snapshot.get(name)
-        if (
-            not cached_data
-            or cached_data["id"] != fresh_data["id"]
-            or cached_data.get("private") != fresh_data["private"]
-        ):
-            if cached_data and cached_data["id"] != fresh_data["id"]:
-                invalidate_channel(cached_data["id"])
-            to_cache[fresh_data["id"]] = {
-                "name": name,
-                "private": fresh_data["private"],
-            }
-    if to_cache:
-        cache_channels(to_cache)
-        logger.info(f"re-resolved {len(to_cache)} channel mappings on startup")
+    cache_channels(
+        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
+    )
+    for name, cached_data in snapshot.items():
+        cached_id = cached_data["id"]
+        fresh_id = fresh[name]["id"] if name in fresh else None
+        if fresh_id != cached_id:
+            unmark_channel_failed(cached_id)
+            startup_stale.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
+    if startup_stale:
+        logger.info(f"{len(startup_stale)} stale channel mappings found on startup")
 
 
 @asynccontextmanager
@@ -230,17 +228,27 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
         return {"removed": []}
-    fresh = await bulk_cname_to_cid(list(snapshot.keys()), bypass_cache=True)
+    for cached_data in snapshot.values():
+        invalidate_channel(cached_data["id"])
+    fresh = await _resolve_channel_names(list(snapshot.keys()))
+    cache_channels(
+        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
+    )
     removed = []
     for name, cached_data in snapshot.items():
         cached_id = cached_data["id"]
-        fresh_entry = fresh.get(name)
-        fresh_id = fresh_entry["id"] if fresh_entry else None
+        fresh_id = fresh[name]["id"] if name in fresh else None
         if fresh_id != cached_id:
-            invalidate_channel(cached_id)
             unmark_channel_failed(cached_id)
             removed.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
     return {"removed": removed}
+
+
+@app.get("/admin/stale")
+async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
+    if x_admin_key is None or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    return {"count": len(startup_stale), "stale": startup_stale}
 
 
 @app.get("/emoji/{name}")
