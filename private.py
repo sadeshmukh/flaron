@@ -16,8 +16,6 @@ async def cname_private(id: str) -> dict:
             if not data.get("success") and not data.get("ok"):
                 return {"error": "channel doesn't exist"}
 
-            if name := data.get("name"):
-                cache_channel(id, name, private=True)
             return data
 
 

@@ -153,3 +153,18 @@ def invalidate_channel(id: str):
         pipe.delete(f"channel_name:{name}")
     pipe.srem(PRIVATE_CHANNEL_IDS_KEY, id)
     pipe.exec()
+
+
+def purge_channel_cache():
+    _id_to_name.clear()
+    _name_to_data.clear()
+    cursor = 0
+    pipe = redis.pipeline()
+    while True:
+        cursor, keys = redis.scan(cursor, match="channel:*", count=500)
+        for key in keys:
+            pipe.delete(key)
+        if cursor == 0:
+            break
+    pipe.delete(PRIVATE_CHANNEL_IDS_KEY)
+    pipe.exec()

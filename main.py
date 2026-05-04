@@ -20,6 +20,7 @@ from cache import (
     get_all_cached_name_to_id,
     search_cached_channels,
     invalidate_channel,
+    purge_channel_cache,
     mark_channel_failed,
     unmark_channel_failed,
     is_channel_failed,
@@ -52,8 +53,7 @@ async def _re_resolve_startup_cache():
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
         return
-    for cached_data in snapshot.values():
-        invalidate_channel(cached_data["id"])
+    purge_channel_cache()
     fresh = await _resolve_channel_names(list(snapshot.keys()))
     cache_channels(
         {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
@@ -228,8 +228,7 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
         return {"removed": []}
-    for cached_data in snapshot.values():
-        invalidate_channel(cached_data["id"])
+    purge_channel_cache()
     fresh = await _resolve_channel_names(list(snapshot.keys()))
     cache_channels(
         {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
