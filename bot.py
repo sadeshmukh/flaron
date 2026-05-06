@@ -125,11 +125,11 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 logging.warning("I love testing in prod: " + str(command))
 
             return await respond("who do you think you are")
-        matches = list(search_cached_channels(query).items())
+        matches = search_cached_channels(query)
         if not matches:
             return await respond(f"none matching `{query}`.")
-        matches.sort(key=lambda x: x[0])
-        lines = [f"`#{name}` ({cid})" for name, cid in matches[:50]]
+        matches.sort(key=lambda x: x["name"])
+        lines = [f"`#{r['name']}` ({r['id']})" for r in matches[:50]]
         suffix = f"\n_…and {len(matches) - 50} more_" if len(matches) > 50 else ""
         await respond(
             f"*{len(matches)} match(es) for `{query}`:*\n" + "\n".join(lines) + suffix

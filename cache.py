@@ -1,3 +1,5 @@
+import logging
+
 from upstash_redis import Redis
 
 if __name__ == "__main__":
@@ -19,14 +21,13 @@ PRIVATE_CHANNEL_IDS_KEY = "private_channel_ids"
 def init_cache():
     cursor = 0
     while True:
-        cursor, keys = redis.scan(cursor, match="channel:*", count=500)
-        id_keys = [k for k in keys if not k.startswith("channel_name:")]
-        if id_keys:
-            values = redis.mget(*id_keys)
-            for key, value in zip(id_keys, values):
-                if value is not None:
-                    cid = key[len("channel:"):]
-                    _id_to_name[cid] = value
+        cursor, keys = redis.scan(cursor, match="channel_name:*", count=500)
+        if keys:
+            values = redis.mget(*keys)
+            for key, cid in zip(keys, values):
+                if cid is not None:
+                    name = key[len("channel_name:") :]
+                    _id_to_name[cid] = name
         if cursor == 0:
             break
 
@@ -62,6 +63,7 @@ def get_cached_channel_id(name: str) -> dict | None:
 
 def cache_channels(mapping: dict[str, dict]):
     # mapping: {id: {"name": str, "private": bool}}
+    logging.info(f"caching {len(mapping)} channels")
     if not mapping:
         return
     private_ids = []
@@ -89,20 +91,13 @@ def get_cached_channels(ids: list[str]) -> dict[str, str | None]:
     return {id: _id_to_name.get(id) for id in ids}
 
 
-def search_cached_channels(query: str) -> dict[str, str]:
+def search_cached_channels(query: str) -> list[dict]:
     q = query.lower()
-    cursor = 0
-    results = {}
-    while True:
-        cursor, keys = redis.scan(cursor, match=f"channel_name:*{q}*", count=500)
-        for key in keys:
-            name = key[len("channel_name:"):]
-            cid = redis.get(key)
-            if cid:
-                results[name] = cid
-        if cursor == 0:
-            break
-    return results
+    return [
+        {"name": name, "id": data["id"], "private": data.get("private", False)}
+        for name, data in _name_to_data.items()
+        if q in name.lower()
+    ]
 
 
 def get_all_cached_name_to_id() -> dict[str, dict]:

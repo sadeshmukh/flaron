@@ -3,6 +3,7 @@ import aiohttp
 import asyncio
 
 from contextlib import asynccontextmanager
+from cachetools import TTLCache
 from fastapi import FastAPI, Header
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,6 +37,7 @@ from userbot import (
     channel_info,
     channel_managers,
     bulk_cname_to_cid,
+    posters,
     promote_member,
     user_info_edge,
     install_info,
@@ -102,17 +104,17 @@ app.add_middleware(
 )
 
 
-# @app.get("/")
-# async def root():
-#     return FileResponse(
-#         path=os.path.join(os.path.dirname(__file__), "client.html"),
-#         media_type="text/html",
-#     )
+@app.get("/")
+async def root():
+    return FileResponse(
+        path=os.path.join(os.path.dirname(__file__), "client.html"),
+        media_type="text/html",
+    )
 
 
-@app.get("/hello")
+@app.get("/healthz")
 async def hello():
-    return {"message": "Hello, World!"}
+    return {"status": "ok"}
 
 
 @app.get("/command/{name}")
@@ -124,12 +126,12 @@ async def command_info(name: str):
 
 
 @app.get("/cman/{id}")
-async def cman(id: str):
+async def channel_manager_list(id: str):
     return await channel_managers(id)
 
 
 @app.get("/ccount/{id}")
-async def ccount(id: str):
+async def channel_member_count(id: str):
     return await channel_counts(id)
 
 
@@ -159,6 +161,10 @@ async def channel(id: str):
     ret["managers"] = managers.get("data", [])
     if not (info := await channel_info(id)).get("error", {}):
         ret.update(info.get("data", {}))
+
+    whocanpost = await posters(id)
+    if not whocanpost.get("error"):
+        ret["who_can_post"] = whocanpost.get("data", {})
     return ret
 
 
@@ -182,9 +188,12 @@ async def channel_by_name(name: str):
 async def channels_by_name(
     names: list[str], x_admin_key: str | None = Header(default=None)
 ):
+    """admin key bypasses cache"""
     bypass = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
     if bypass:
         logger.info(f"BYPASS {names}")
+    if len(names) > 2000 and not bypass:
+        return {"error": "too many names"}
     return await bulk_cname_to_cid(names, bypass_cache=bypass)
 
 
@@ -195,8 +204,13 @@ async def channel_info_public(id: str):
     return await channel(id)
 
 
+user_cache = TTLCache(maxsize=2000, ttl=3600)
+
+
 @app.get("/user/{id}")
 async def user_info(id: str):
+    if id in user_cache:
+        return {"data": user_cache[id]}
     if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
         return {"error": "invalid user ID"}
     data = {}
@@ -210,12 +224,17 @@ async def user_info(id: str):
         else:
             data["installers"] = install_info_data.get("data", {}).get("installers", [])
             data["creator_id"] = install_info_data.get("data", {}).get("creator", {})
+    user_cache[id] = data
+    return {"data": data}
 
-    return data
+
+app_cache = TTLCache(maxsize=1000, ttl=3600)
 
 
 @app.get("/app/{id}")
 async def _app_info(id: str):
+    if id in app_cache:
+        return {"data": app_cache[id]}
     if not re.fullmatch(r"A[A-Z0-9]{6,}", id):
         return {"error": "invalid app ID"}
     data = {}
@@ -229,7 +248,14 @@ async def _app_info(id: str):
         ) is None:
             data["app"] = appinfo.get("data", {})
 
-    return data if data else {"error": "nonexistent"}
+    app_cache[id] = data
+
+    return {"data": data} if data else {"error": "nonexistent"}
+
+
+@app.get("/emoji/{name}")
+async def emoji(name: str):
+    return await emoji_info(name)
 
 
 @app.get("/admin/search")
@@ -267,11 +293,6 @@ async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
     return {"count": len(startup_stale), "stale": startup_stale}
-
-
-@app.get("/emoji/{name}")
-async def emoji(name: str):
-    return await emoji_info(name)
 
 
 # @app.get("/promote/{id}")

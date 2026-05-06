@@ -1,0 +1,1043 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>flaron</title>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"
+    ></script>
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --fg: #d4d4d4;
+        --dim: #6b7280;
+        --dimmer: #1f2937;
+        --border: #1f2937;
+        --accent: #4ade80;
+        --amber: #fbbf24;
+        --red: #f87171;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace,
+          monospace;
+        font-size: 13px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 5rem 1.5rem 8rem;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 680px;
+      }
+
+      /* ── Header ── */
+      header {
+        margin-bottom: 3rem;
+      }
+
+      header h1 {
+        font-size: 1rem;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+        color: var(--fg);
+      }
+
+      header p {
+        color: var(--dim);
+        margin-top: 0.2rem;
+      }
+
+      /* ── Input ── */
+      .input-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .prompt {
+        color: var(--dim);
+        user-select: none;
+        transition: color 0.15s;
+      }
+
+      .prompt.admin {
+        color: var(--accent);
+      }
+      .prompt.priv-filter {
+        color: var(--amber);
+      }
+
+      input[type="text"] {
+        flex: 1;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--fg);
+        font-family: inherit;
+        font-size: 13px;
+        padding: 0.55rem 0.75rem;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      input[type="text"]:focus {
+        border-color: var(--dim);
+      }
+      input[type="text"].admin-search {
+        border-color: var(--accent);
+      }
+      input[type="text"].admin-search:focus {
+        border-color: var(--accent);
+      }
+      input[type="text"].priv-filter {
+        border-color: var(--amber);
+      }
+      input[type="text"].priv-filter:focus {
+        border-color: var(--amber);
+      }
+
+      /* ── Help button ── */
+      .help-btn {
+        font-family: inherit;
+        font-size: 0.8rem;
+        background: transparent;
+        border: 1px solid var(--dimmer);
+        color: var(--dim);
+        padding: 0.45rem 0.65rem;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition:
+          color 0.1s,
+          border-color 0.1s;
+      }
+
+      .help-btn:hover,
+      .help-btn.open {
+        color: var(--fg);
+        border-color: var(--dim);
+      }
+
+      /* ── Help panel ── */
+      .help-panel {
+        border: 1px solid var(--border);
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .help-row {
+        display: flex;
+        gap: 2rem;
+      }
+
+      .help-key {
+        color: var(--fg);
+        width: 11rem;
+        flex-shrink: 0;
+      }
+
+      .help-val {
+        color: var(--dim);
+      }
+
+      .help-sep {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 0.5rem 0;
+      }
+
+      .help-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .toggle-group {
+        display: flex;
+      }
+
+      .toggle-btn {
+        font-family: inherit;
+        font-size: 0.75rem;
+        background: transparent;
+        border: 1px solid var(--dimmer);
+        color: var(--dim);
+        padding: 0.2rem 0.6rem;
+        cursor: pointer;
+        margin-right: -1px;
+        transition:
+          color 0.1s,
+          border-color 0.1s;
+      }
+
+      .toggle-btn:last-child {
+        margin-right: 0;
+      }
+
+      .toggle-btn.active {
+        color: var(--fg);
+        border-color: var(--dim);
+        position: relative;
+        z-index: 1;
+      }
+
+      .toggle-btn.active-amber {
+        color: var(--amber);
+        border-color: var(--amber);
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── Input hint ── */
+      .input-hint {
+        color: var(--dim);
+        font-size: 0.75rem;
+        margin-top: 0.4rem;
+        margin-bottom: 1rem;
+      }
+
+      /* ── Admin ── */
+      input.admin-key {
+        background: transparent;
+        border: 1px solid var(--dimmer);
+        color: var(--fg);
+        font-family: inherit;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        outline: none;
+        width: 14rem;
+        transition: border-color 0.15s;
+      }
+
+      input.admin-key:focus {
+        border-color: var(--dim);
+      }
+      input.admin-key::placeholder {
+        color: var(--dim);
+      }
+
+      .admin-action {
+        font-family: inherit;
+        font-size: 0.75rem;
+        background: transparent;
+        border: 1px solid var(--dimmer);
+        color: var(--dim);
+        padding: 0.2rem 0.6rem;
+        cursor: pointer;
+        transition:
+          color 0.1s,
+          border-color 0.1s;
+      }
+
+      .admin-action:hover {
+        color: var(--fg);
+        border-color: var(--dim);
+      }
+      .admin-action.active {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .admin-msg {
+        color: var(--dim);
+        font-size: 0.75rem;
+      }
+
+      /* ── Divider ── */
+      hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+      }
+
+      /* ── Multi results ── */
+      .status-line {
+        color: var(--dim);
+        margin-bottom: 0.75rem;
+      }
+
+      .results {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .result-row {
+        display: grid;
+        grid-template-columns: 2.5rem 1fr auto;
+        align-items: baseline;
+        gap: 0.75rem;
+        padding: 0.2rem 0;
+      }
+
+      .result-num {
+        color: var(--dim);
+        text-align: right;
+      }
+
+      .result-name {
+        color: var(--fg);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .result-name.priv {
+        color: var(--amber);
+      }
+
+      .result-id {
+        color: var(--dim);
+        white-space: nowrap;
+      }
+
+      .result-id.priv {
+        color: color-mix(in srgb, var(--amber) 35%, var(--dim));
+      }
+
+      /* ── Single / stacked lookups ── */
+      .lookups-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .lookup {
+        border: 1px solid var(--border);
+        padding: 1rem 1.25rem;
+      }
+
+      .lookup-name {
+        font-size: 1rem;
+        margin-bottom: 0.6rem;
+      }
+
+      .lookup-meta {
+        color: var(--dim);
+        display: flex;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+      }
+
+      .lookup-meta .accent {
+        color: var(--accent);
+      }
+
+      .lookup-section {
+        margin-top: 0.75rem;
+      }
+      .lookup-label {
+        color: var(--dim);
+        margin-bottom: 0.25rem;
+      }
+
+      .manager-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      /* ── Shared ── */
+      .timing {
+        color: var(--dim);
+        margin-top: 1rem;
+      }
+      .err {
+        color: var(--red);
+      }
+      .spinner {
+        color: var(--dim);
+      }
+
+      .badge-archived {
+        color: var(--red);
+        font-size: 0.75rem;
+      }
+
+      .lookup-desc {
+        color: var(--dim);
+        margin-top: 0.5rem;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+
+      .prev-names {
+        color: var(--dim);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .prev-name {
+        text-decoration: line-through;
+        opacity: 0.6;
+      }
+
+      /* ── Active mode badges ── */
+      .mode-badges {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.35rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .mode-badge {
+        font-size: 0.7rem;
+        padding: 0.1rem 0.4rem;
+        border: 1px solid;
+        opacity: 0.85;
+      }
+
+      .mode-badge.green {
+        color: var(--accent);
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      .mode-badge.amber {
+        color: var(--amber);
+        border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+      }
+      .mode-badge.dim {
+        color: var(--dim);
+        border-color: var(--dimmer);
+      }
+
+      a.user-link {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      a.user-link:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" x-data="flaron()">
+      <header>
+        <h1>flaron</h1>
+      </header>
+
+      <div class="input-row">
+        <span
+          class="prompt"
+          :class="{ admin: adminSearch, 'priv-filter': !adminSearch && filter === 'private' }"
+          >❯</span
+        >
+        <input
+          type="text"
+          x-model="query"
+          @keydown.enter="search()"
+          :class="{ 'admin-search': adminSearch, 'priv-filter': !adminSearch && filter === 'private' }"
+          placeholder="channel, user, or app ID — or a name"
+          autofocus
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button
+          class="help-btn"
+          :class="{ open: showHelp }"
+          @click="showHelp = !showHelp"
+        >
+          ?
+        </button>
+      </div>
+
+      <!-- Badges -->
+      <div
+        class="mode-badges"
+        x-show="!showHelp && (filter !== 'all' || adminSearch || bypassCache)"
+      >
+        <span class="mode-badge amber" x-show="filter === 'private'"
+          >private</span
+        >
+        <span class="mode-badge dim" x-show="filter === 'public'">public</span>
+        <span class="mode-badge green" x-show="adminSearch">search</span>
+        <span class="mode-badge dim" x-show="bypassCache">bypass cache</span>
+      </div>
+
+      <div
+        class="input-hint"
+        x-show="comboPreview > 0"
+        x-text="comboPreview + ' combos'"
+      ></div>
+
+      <div class="help-panel" x-show="showHelp">
+        <div class="help-row">
+          <span class="help-key">channel-name</span
+          ><span class="help-val">name lookup</span>
+        </div>
+        <div class="help-row">
+          <span class="help-key">C0AR0M43H61</span
+          ><span class="help-val">channel by ID</span>
+        </div>
+        <div class="help-row">
+          <span class="help-key">U0123456</span
+          ><span class="help-val">user by ID</span>
+        </div>
+        <div class="help-row">
+          <span class="help-key">A0123456</span
+          ><span class="help-val">app by ID</span>
+        </div>
+        <div class="help-row">
+          <span class="help-key">!word1 word2</span
+          ><span class="help-val">permutation search</span>
+        </div>
+        <hr class="help-sep" />
+        <div class="help-controls">
+          <div class="toggle-group">
+            <button
+              class="toggle-btn"
+              :class="{ active: filter === 'all' }"
+              @click="filter = 'all'"
+            >
+              all
+            </button>
+            <button
+              class="toggle-btn"
+              :class="{ active: filter === 'public' }"
+              @click="filter = 'public'"
+            >
+              public
+            </button>
+            <button
+              class="toggle-btn"
+              :class="{ 'active-amber': filter === 'private' }"
+              @click="filter = 'private'"
+            >
+              private
+            </button>
+          </div>
+        </div>
+        <hr class="help-sep" />
+        <div class="help-controls">
+          <input
+            class="admin-key"
+            type="password"
+            x-model="adminKey"
+            placeholder="admin key"
+            autocomplete="off"
+          />
+          <template x-if="adminKey">
+            <div class="help-controls" style="gap: 0.5rem">
+              <button
+                class="admin-action"
+                :class="{ active: adminSearch }"
+                @click="adminSearch = !adminSearch"
+              >
+                search
+              </button>
+              <button
+                class="admin-action"
+                :class="{ active: bypassCache }"
+                @click="bypassCache = !bypassCache"
+              >
+                bypass cache
+              </button>
+              <button class="admin-action" @click="revalidate()">
+                revalidate
+              </button>
+              <span
+                class="admin-msg"
+                x-show="adminMsg"
+                x-text="adminMsg"
+              ></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <hr />
+
+      <!-- State -->
+      <div class="spinner" x-show="loading">searching…</div>
+      <div class="err" x-show="error && !loading" x-text="error"></div>
+
+      <!-- multi view -->
+      <div x-show="results.length > 0 && !loading">
+        <div>
+          <div class="status-line">
+            <span x-text="filteredResults.length"></span> hit<span
+              x-show="filteredResults.length !== 1"
+              >s</span
+            >
+            <span
+              x-show="filter !== 'all'"
+              x-text="' (' + filter + ' only)'"
+            ></span>
+          </div>
+          <div class="results">
+            <template x-for="(r, i) in filteredResults" :key="r.id">
+              <div class="result-row">
+                <span class="result-num" x-text="'#' + (i + 1)"></span>
+                <span
+                  class="result-name"
+                  :class="{ priv: r.private }"
+                  x-text="r.name"
+                ></span>
+                <span
+                  class="result-id"
+                  :class="{ priv: r.private }"
+                  x-text="r.id"
+                ></span>
+              </div>
+            </template>
+          </div>
+          <div class="timing" x-text="timing"></div>
+        </div>
+      </div>
+
+      <!-- Lookup result -->
+      <div x-show="lookups.length > 0 && !loading" class="lookups-list">
+        <template x-for="(item, i) in lookups" :key="i">
+          <div>
+            <template x-if="item.type === 'channel'">
+              <div class="lookup">
+                <div class="lookup-name">
+                  <span x-text="'#' + (item.data.name || item.data.id)"></span>
+                  <span class="badge-archived" x-show="item.data.is_archived">
+                    archived</span
+                  >
+                </div>
+                <div class="lookup-meta">
+                  <span x-text="item.data.id"></span>
+                  <span
+                    :class="!item.data.counts ? 'accent' : ''"
+                    x-text="!item.data.counts ? 'private' : 'public'"
+                  ></span>
+                  <span
+                    x-show="item.data.counts?.total"
+                    x-text="(item.data.counts?.total ?? 0).toLocaleString() + ' members'"
+                  ></span>
+                  <span
+                    x-show="item.data.counts?.bots"
+                    x-text="(item.data.counts?.bots ?? 0) + ' bots'"
+                  ></span>
+                  <span
+                    x-show="item.data.created"
+                    x-text="'created ' + new Date((item.data.created ?? 0) * 1000).toLocaleDateString()"
+                  ></span>
+                </div>
+                <div
+                  class="lookup-desc"
+                  x-show="item.data.description"
+                  x-text="item.data.description"
+                ></div>
+                <div class="lookup-section" x-show="item.data.managers?.length">
+                  <div class="lookup-label">managers</div>
+                  <div class="manager-list">
+                    <template x-for="m in (item.data.managers || [])" :key="m">
+                      <a
+                        class="user-link"
+                        :href="`https://hackclub.slack.com/team/${m}`"
+                        target="_blank"
+                        x-text="'@' + (item.userMap?.[m] ?? m)"
+                      ></a>
+                    </template>
+                  </div>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.who_can_post !== undefined"
+                >
+                  <div class="lookup-label">who can post</div>
+                  <template x-if="item.data.who_can_post === 'all'"
+                    ><span>anyone</span></template
+                  >
+                  <template
+                    x-if="Array.isArray(item.data.who_can_post) && item.data.who_can_post.length"
+                  >
+                    <div class="manager-list">
+                      <template x-for="u in item.data.who_can_post" :key="u">
+                        <a
+                          class="user-link"
+                          :href="`https://hackclub.slack.com/team/${u}`"
+                          target="_blank"
+                          x-text="'@' + (item.userMap?.[u] ?? u)"
+                        ></a>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+                <div class="lookup-section" x-show="item.data.creator">
+                  <div class="lookup-label">creator</div>
+                  <a
+                    class="user-link"
+                    :href="`https://hackclub.slack.com/team/${item.data.creator}`"
+                    target="_blank"
+                    x-text="'@' + (item.userMap?.[item.data.creator] ?? item.data.creator)"
+                  ></a>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.previous_names?.length"
+                >
+                  <div class="lookup-label">previously</div>
+                  <div class="prev-names">
+                    <template
+                      x-for="n in (item.data.previous_names || [])"
+                      :key="n"
+                    >
+                      <span class="prev-name" x-text="'#' + n"></span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="item.type === 'user'">
+              <div class="lookup">
+                <div
+                  class="lookup-name"
+                  x-text="'@' + (item.data.user?.name || item.data.user?.id)"
+                ></div>
+                <div class="lookup-meta">
+                  <span x-text="item.data.user?.id"></span>
+                  <span x-show="item.data.user?.is_bot">bot</span>
+                  <span
+                    x-show="item.data.user?.real_name"
+                    x-text="item.data.user?.real_name"
+                  ></span>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.installers?.length"
+                >
+                  <div class="lookup-label">installed by</div>
+                  <div class="manager-list">
+                    <template
+                      x-for="inst in (item.data.installers || [])"
+                      :key="inst.id"
+                    >
+                      <a
+                        class="user-link"
+                        :href="`https://hackclub.slack.com/team/${inst.id}`"
+                        target="_blank"
+                        x-text="'@' + (inst.name || inst.id)"
+                      ></a>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="item.type === 'app'">
+              <div class="lookup">
+                <div
+                  class="lookup-name"
+                  x-text="item.data.app?.name || item.data.app?.id || 'app'"
+                ></div>
+                <div class="lookup-meta">
+                  <span
+                    x-show="item.data.app?.app_id"
+                    x-text="item.data.app?.app_id"
+                  ></span>
+                  <span
+                    x-show="item.data.app?.bot_id"
+                    x-text="item.data.app?.bot_id"
+                  ></span>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.installers?.length"
+                >
+                  <div class="lookup-label">installed by</div>
+                  <div class="manager-list">
+                    <template
+                      x-for="inst in (item.data.installers || [])"
+                      :key="inst.id"
+                    >
+                      <a
+                        class="user-link"
+                        :href="`https://hackclub.slack.com/team/${inst.id}`"
+                        target="_blank"
+                        x-text="'@' + (inst.name || inst.id)"
+                      ></a>
+                    </template>
+                  </div>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.user?.name || item.data.user?.id"
+                >
+                  <div class="lookup-label">creator</div>
+                  <a
+                    class="user-link"
+                    :href="`https://hackclub.slack.com/team/${item.data.user?.id}`"
+                    target="_blank"
+                    x-text="'@' + (item.data.user?.name || item.data.user?.id)"
+                  ></a>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div class="timing" x-text="timing"></div>
+      </div>
+    </div>
+
+    <script>
+      const API = "https://flaron.halceon.dev";
+
+      // const API = "http://localhost:8000";
+
+      function perms(arr) {
+        if (arr.length <= 1) return [arr];
+        return arr.flatMap((x, i) =>
+          perms([...arr.slice(0, i), ...arr.slice(i + 1)]).map((rest) => [
+            x,
+            ...rest,
+          ]),
+        );
+      }
+
+      function subsets(arr, k) {
+        if (k === 1) return arr.map((x) => [x]);
+        return arr.flatMap((x, i) =>
+          subsets(arr.slice(i + 1), k - 1).map((rest) => [x, ...rest]),
+        );
+      }
+
+      function cartesian(groups) {
+        return groups.reduce(
+          (acc, group) =>
+            acc.flatMap((prev) => group.map((item) => [...prev, item])),
+          [[]],
+        );
+      }
+
+      // groups: array of arrays of alternatives, e.g. [["a"], ["b","c","d"]]
+      function allCombos(groups) {
+        const seen = new Set();
+        for (let k = 1; k <= groups.length; k++)
+          subsets(groups, k).forEach((s) =>
+            perms(s).forEach((p) =>
+              cartesian(p).forEach((combo) => seen.add(combo.join("-"))),
+            ),
+          );
+        return [...seen];
+      }
+
+      function parseGroups(q) {
+        return q
+          .slice(1)
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((w) => w.split("/"));
+      }
+
+      async function resolveUsers(ids) {
+        const unique = [...new Set(ids.filter(Boolean))];
+        const result = {};
+        const BATCH = 5;
+        for (let i = 0; i < unique.length; i += BATCH) {
+          const entries = await Promise.all(
+            unique.slice(i, i + BATCH).map(async (id) => {
+              try {
+                const res = await fetch(
+                  `${API}/user/${encodeURIComponent(id)}`,
+                );
+                const json = await res.json();
+                const data = json.data ?? json;
+                const name = data.user?.name || data.user?.real_name;
+                return [id, name || id];
+              } catch {
+                return [id, id];
+              }
+            }),
+          );
+          entries.forEach(([id, name]) => (result[id] = name));
+        }
+        const entries = Object.entries(result);
+        return Object.fromEntries(entries);
+      }
+
+      function flaron() {
+        return {
+          query: "",
+          results: [],
+          lookups: [],
+          error: "",
+          loading: false,
+          timing: "",
+          filter: "all",
+          showHelp: false,
+          adminKey: "",
+          adminSearch: false,
+          bypassCache: false,
+          adminMsg: "",
+
+          init() {
+            this.adminKey = localStorage.getItem("flaron_admin_key") || "";
+            this.$watch("adminKey", (val) => {
+              if (val) localStorage.setItem("flaron_admin_key", val);
+              else localStorage.removeItem("flaron_admin_key");
+            });
+            const q = new URLSearchParams(window.location.search).get("q");
+            if (q) {
+              this.query = q;
+              this.$nextTick(() => this.search());
+            }
+          },
+
+          async lookupOne(token) {
+            const raw = token.startsWith("@") ? token.slice(1) : token;
+            try {
+              if (/^U[A-Z0-9]{6,}$/i.test(raw)) {
+                const res = await fetch(
+                  `${API}/user/${encodeURIComponent(raw)}`,
+                );
+                const json = await res.json();
+                if (json.error) return null;
+                return { type: "user", data: json.data ?? json };
+              } else if (/^A[A-Z0-9]{6,}$/i.test(raw)) {
+                const res = await fetch(
+                  `${API}/app/${encodeURIComponent(raw)}`,
+                );
+                const data = await res.json();
+                if (data.error) return null;
+                return { type: "app", data };
+              } else {
+                const res = await fetch(
+                  `${API}/channel/${encodeURIComponent(raw)}`,
+                );
+                const data = await res.json();
+                if (data.error) return null;
+                const posterIds = Array.isArray(data.who_can_post)
+                  ? data.who_can_post
+                  : [];
+                const userMap = await resolveUsers([
+                  ...(data.managers ?? []),
+                  data.creator,
+                  ...posterIds,
+                ]);
+                return { type: "channel", data, userMap };
+              }
+            } catch {
+              return null;
+            }
+          },
+
+          async revalidate() {
+            this.adminMsg = "revalidating…";
+            try {
+              const res = await fetch(`${API}/admin/revalidate`, {
+                method: "POST",
+                headers: { "X-Admin-Key": this.adminKey },
+              });
+              const data = await res.json();
+              if (data.error) this.adminMsg = data.error;
+              else this.adminMsg = `done — ${data.removed?.length ?? 0} stale`;
+            } catch {
+              this.adminMsg = "request failed";
+            }
+            setTimeout(() => (this.adminMsg = ""), 4000);
+          },
+
+          get filteredResults() {
+            if (this.filter === "private")
+              return this.results.filter((r) => r.private);
+            if (this.filter === "public")
+              return this.results.filter((r) => !r.private);
+            return this.results;
+          },
+
+          get comboPreview() {
+            const q = this.query.trim();
+            if (!q.startsWith("!")) return 0;
+            const groups = parseGroups(q);
+            return groups.length > 0 ? allCombos(groups).length : 0;
+          },
+
+          fill(text) {
+            this.query = text;
+            this.$nextTick(() => document.querySelector("input").focus());
+          },
+
+          async search() {
+            const q = this.query.trim();
+            if (!q) return;
+
+            this.results = [];
+            this.lookups = [];
+            this.error = "";
+            this.loading = true;
+            const t0 = performance.now();
+
+            try {
+              if (this.adminSearch && this.adminKey) {
+                const url = new URL(`${API}/admin/search`);
+                url.searchParams.set("q", q);
+                const res = await fetch(url, {
+                  headers: { "X-Admin-Key": this.adminKey },
+                });
+                const data = await res.json();
+                if (data.error) {
+                  this.error = data.error;
+                } else {
+                  this.results = (data.results ?? [])
+                    .map((r) => ({
+                      name: r.name,
+                      id: r.id,
+                      private: r.private ?? false,
+                    }))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                }
+              } else if (q.startsWith("!")) {
+                // permutations
+                const names = allCombos(parseGroups(q));
+                const cnames_headers = { "Content-Type": "application/json" };
+                if (this.bypassCache && this.adminKey)
+                  cnames_headers["X-Admin-Key"] = this.adminKey;
+                const res = await fetch(`${API}/cnames`, {
+                  method: "POST",
+                  headers: cnames_headers,
+                  body: JSON.stringify(names),
+                });
+                const data = await res.json();
+                this.results = Object.entries(data)
+                  .filter(([, v]) => v && !v.error)
+                  .map(([name, v]) => ({
+                    name,
+                    id: v.id,
+                    private: v.private ?? false,
+                  }))
+                  .sort((a, b) => a.name.localeCompare(b.name));
+              } else {
+                const tokens = q.split(/\s+/).filter(Boolean);
+                const results = await Promise.all(
+                  tokens.map((t) => this.lookupOne(t)),
+                );
+                this.lookups = results.filter(Boolean);
+                if (!this.lookups.length) this.error = "not found";
+              }
+            } catch {
+              this.error = "request failed";
+            }
+
+            this.timing = `${(performance.now() - t0).toFixed(0)}ms`;
+            this.loading = false;
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
