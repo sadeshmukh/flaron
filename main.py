@@ -94,7 +94,10 @@ async def lifespan(app: FastAPI):
 
 # struct: {command name -> {name, usage, description, app_name, app_id,
 # icons: {image_32, image_48, image_64, image_72}}}
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    openapi_tags=[{"name": "main"}],
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -184,11 +187,11 @@ async def channel_by_name(name: str):
     return await channel(id)
 
 
-@app.post("/cnames")
+@app.post("/cnames", tags=["main"])
 async def channels_by_name(
     names: list[str], x_admin_key: str | None = Header(default=None)
 ):
-    """admin key bypasses cache"""
+    """get channels in bulk! admin key only required to bypass cache"""
     bypass = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
     if bypass:
         logger.info(f"BYPASS {names}")
@@ -197,7 +200,7 @@ async def channels_by_name(
     return await bulk_cname_to_cid(names, bypass_cache=bypass)
 
 
-@app.get("/channel/{id}")
+@app.get("/channel/{id}", tags=["main"])
 async def channel_info_public(id: str):
     if not re.fullmatch(r"C[A-Z0-9]{6,}", id):
         return await channel_by_name(id)
@@ -207,7 +210,7 @@ async def channel_info_public(id: str):
 user_cache = TTLCache(maxsize=2000, ttl=3600)
 
 
-@app.get("/user/{id}")
+@app.get("/user/{id}", tags=["main"])
 async def user_info(id: str):
     if id in user_cache:
         return {"data": user_cache[id]}
@@ -231,7 +234,7 @@ async def user_info(id: str):
 app_cache = TTLCache(maxsize=1000, ttl=3600)
 
 
-@app.get("/app/{id}")
+@app.get("/app/{id}", tags=["main"])
 async def _app_info(id: str):
     if id in app_cache:
         return {"data": app_cache[id]}
@@ -253,7 +256,7 @@ async def _app_info(id: str):
     return {"data": data} if data else {"error": "nonexistent"}
 
 
-@app.get("/emoji/{name}")
+@app.get("/emoji/{name}", tags=["main"])
 async def emoji(name: str):
     return await emoji_info(name)
 

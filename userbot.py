@@ -477,6 +477,14 @@ async def format(text: str) -> str:
 async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
     if not names:
         return {}
+    text_payload = " ".join(f"#{n}" for n in names)
+    if len(text_payload) > 3_000:
+        mid = len(names) // 2
+        left, right = await asyncio.gather(
+            _resolve_channel_names(names[:mid]),
+            _resolve_channel_names(names[mid:]),
+        )
+        return {**left, **right}
     data = await req(
         "blocks.format",
         form={

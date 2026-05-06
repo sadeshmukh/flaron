@@ -432,7 +432,24 @@
   <body>
     <div class="container" x-data="flaron()">
       <header>
-        <h1>flaron</h1>
+        <h1>
+          flaron
+          <a
+            href="/docs"
+            target="_blank"
+            style="
+              font-size: 0.7rem;
+              color: var(--dim);
+              text-decoration: none;
+              letter-spacing: 0;
+              margin-left: 0.5rem;
+              vertical-align: middle;
+            "
+            onmouseover="this.style.color = 'var(--fg)'"
+            onmouseout="this.style.color = 'var(--dim)'"
+            >api reference</a
+          >
+        </h1>
       </header>
 
       <div class="input-row">
