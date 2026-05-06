@@ -24,7 +24,6 @@ from cache import (
     get_all_cached_name_to_id,
     search_cached_channels,
     invalidate_channel,
-    purge_channel_cache,
     mark_channel_failed,
     unmark_channel_failed,
     is_channel_failed,
@@ -58,19 +57,21 @@ async def _re_resolve_startup_cache():
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
         return
-    purge_channel_cache()
     fresh = await _resolve_channel_names(list(snapshot.keys()))
-    cache_channels(
-        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
-    )
     for name, cached_data in snapshot.items():
         cached_id = cached_data["id"]
         fresh_id = fresh[name]["id"] if name in fresh else None
+        if fresh_id is None:
+            continue
         if fresh_id != cached_id:
+            invalidate_channel(cached_id)
             unmark_channel_failed(cached_id)
             startup_stale.append(
                 {"name": name, "stale_id": cached_id, "fresh_id": fresh_id}
             )
+    cache_channels(
+        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
+    )
     if startup_stale:
         logger.info(f"{len(startup_stale)} stale channel mappings found on startup")
 
@@ -277,19 +278,23 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
     snapshot = get_all_cached_name_to_id()
     if not snapshot:
         return {"removed": []}
-    purge_channel_cache()
     fresh = await _resolve_channel_names(list(snapshot.keys()))
-    cache_channels(
-        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
-    )
     removed = []
+    unresolved = []
     for name, cached_data in snapshot.items():
         cached_id = cached_data["id"]
         fresh_id = fresh[name]["id"] if name in fresh else None
+        if fresh_id is None:
+            unresolved.append({"name": name, "stale_id": cached_id})
+            continue
         if fresh_id != cached_id:
+            invalidate_channel(cached_id)
             unmark_channel_failed(cached_id)
             removed.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
-    return {"removed": removed}
+    cache_channels(
+        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
+    )
+    return {"removed": removed, "unresolved": unresolved}
 
 
 @app.get("/admin/export")
