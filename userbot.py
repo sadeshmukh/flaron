@@ -474,7 +474,14 @@ async def format(text: str) -> str:
         return text
 
 
+def _is_valid_channel_name(name: str) -> bool:
+    return bool(name) and all(c.isalnum() or c in "_-" for c in name)
+
+
 async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
+    if not names:
+        return {}
+    names = [n for n in names if _is_valid_channel_name(n)]
     if not names:
         return {}
     text_payload = " ".join(f"#{n}" for n in names)
@@ -520,13 +527,15 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
             data.get("message", {}).get("blocks", [])[0].get("text", {}).get("text", "")
         )
         result = {}
-        for name, token in zip(names, text.split()):
+        for name, token in zip(names, text.split(" ")):
             if m := re.search(r"<#(C\w+)(?:\|[^>]*)?>", token):
                 # <#ID|name> = public, <#ID> = private, plain #name = not found
                 result[name] = {
                     "id": m.group(1),
                     "private": token == f"<#{m.group(1)}>",
                 }
+            else:
+                logger.warning(f"what? {token} doesn't match @ {name}")
         return result
     except Exception as err:
         logger.error(f"channel name resolution parsing error: {err}")
