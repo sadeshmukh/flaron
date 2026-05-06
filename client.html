@@ -463,7 +463,7 @@
           x-model="query"
           @keydown.enter="search()"
           :class="{ 'admin-search': adminSearch, 'priv-filter': !adminSearch && filter === 'private' }"
-          placeholder="channel, user, or app ID — or a name"
+          placeholder="channel/user/app ID, or channel name"
           autofocus
           spellcheck="false"
           autocomplete="off"
@@ -570,6 +570,9 @@
               </button>
               <button class="admin-action" @click="revalidate()">
                 revalidate
+              </button>
+              <button class="admin-action" @click="exportCache()">
+                export
               </button>
               <span
                 class="admin-msg"
@@ -953,6 +956,24 @@
             }
           },
 
+          async exportCache() {
+            try {
+              const url = new URL(`${API}/admin/export`);
+              const res = await fetch(url, {
+                headers: { "X-Admin-Key": this.adminKey },
+              });
+              const blob = await res.blob();
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "channel-cache.json";
+              a.click();
+              URL.revokeObjectURL(a.href);
+            } catch {
+              this.adminMsg = "export failed";
+              setTimeout(() => (this.adminMsg = ""), 4000);
+            }
+          },
+
           async revalidate() {
             this.adminMsg = "revalidating…";
             try {
@@ -962,7 +983,7 @@
               });
               const data = await res.json();
               if (data.error) this.adminMsg = data.error;
-              else this.adminMsg = `done — ${data.removed?.length ?? 0} stale`;
+              else this.adminMsg = `done - ${data.removed?.length ?? 0} stale`;
             } catch {
               this.adminMsg = "request failed";
             }

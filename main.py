@@ -1,11 +1,12 @@
+import json
 import re
 import aiohttp
 import asyncio
 
 from contextlib import asynccontextmanager
 from cachetools import TTLCache
-from fastapi import FastAPI, Header
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Header, Request
+from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import sys
@@ -291,6 +292,18 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
     return {"removed": removed}
 
 
+@app.get("/admin/export")
+async def export_cache(x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    data = get_all_cached_name_to_id()
+    return Response(
+        content=json.dumps(data, separators=(",", ":")),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=channel-cache.json"},
+    )
+
+
 @app.get("/admin/stale")
 async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
@@ -298,14 +311,25 @@ async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     return {"count": len(startup_stale), "stale": startup_stale}
 
 
-# @app.get("/promote/{id}")
-# async def promote(id: str):
-#     if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
-#         return {"error": "invalid user ID"}
-#     return await promote_member(id)
+@app.get("/promote/{id}")
+async def promote(id: str, request: Request):
+    if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
+        return {"error": "invalid user ID"}
+    res = await promote_member(id)
+    if (err := res.get("error")) == "do not promote":
+        host = request.client and request.client.host
+        logging.warning(f"{host} attempted to promote {id}: {err}!!")
+        return {"error": "unknown"}
+    return {"data": res.get("data", {})}
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", reload="--reload" in sys.argv)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        reload="--reload" in sys.argv,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
 
 # conversations.genericInfo
