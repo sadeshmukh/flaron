@@ -551,6 +551,23 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
     return ret
 
 
+async def posters(cid: str) -> dict:
+    data = await req("conversations.listPrefs", form={"channel": cid})
+    if err := data.get("error"):
+        logger.error(f"posters error: {err}")
+        return {"error": "unknown"}
+    try:
+        whocanpost = data.get("prefs", {}).get("who_can_post", [])
+        if whocanpost.get("type")[0] == "ra":
+            return {"data": "all"}
+        elif whocanpost.get("type")[0] == "admin":
+            return {"data": whocanpost.get("user", [])}
+        return {"data": []}
+    except Exception as err:
+        logger.error(f"posters parsing error: {err}")
+        return {"error": "unknown"}
+
+
 async def promote_member(user_id: str) -> dict:
     # from mcg
     DO_NOT_PROMOTE = ["U07CAPBB9B5", "U07NKS9S8GZ"]
@@ -1005,18 +1022,7 @@ if __name__ == "__main__":
 
     # asyncio.run(list_mcgs())
     # print(asyncio.run(testty("A0ATTN5H7S9")))
-    print(
-        asyncio.run(
-            bulk_cname_to_cid(
-                [
-                    "#terrorist-financing",
-                    "#terrorist-financing",
-                    "#terrorist-financing",
-                    "#terrorist-financing",
-                ]
-            )
-        )
-    )
+    print(asyncio.run(posters("C0AR0M43H61")))
 
 
 # endregion
