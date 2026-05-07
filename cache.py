@@ -189,9 +189,9 @@ async def cache_update_loop(poll_interval: float = 2.0):
             if not results:
                 continue
             for _stream, entries in results:
-                for entry_id, fields in entries:
+                for entry_id, flat_fields in entries:
                     last_id = entry_id
-                    _apply_stream_event(fields)
+                    _apply_stream_event(dict(zip(flat_fields[::2], flat_fields[1::2])))
         except Exception as e:
             logging.warning(f"cache stream poll error: {e}")
 
