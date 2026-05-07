@@ -15,7 +15,7 @@ if __name__ == "__main__":
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
 from cache import init_cache, search_cached_channels
-from private import cid_by_name_private, cname_private
+from private import cname_private
 from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
 from utils import _env
 

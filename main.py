@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-from private import cid_by_name_private, cname_private
+from private import cname_private
 from utils import _env
 from cache import (
     init_cache,
@@ -184,10 +184,7 @@ async def channel_by_name(name: str):
     result = await bulk_cname_to_cid([name])
     if entry := result.get(name):
         return await channel(entry["id"])
-    id = (await cid_by_name_private(name)).get("id", "")
-    if not id:
-        return {"error": "nonexistent"}
-    return await channel(id)
+    return {"error": "nonexistent"}
 
 
 @app.post("/cnames", tags=["main"])
