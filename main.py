@@ -200,7 +200,8 @@ async def channels_by_name(
         logger.info(f"BYPASS {names}")
     if len(names) > 2000 and not admin_available:
         return {"error": "too many names"}
-    return await bulk_cname_to_cid(names, bypass_cache=bypass)
+    data = await bulk_cname_to_cid(names, bypass_cache=bypass)
+    return data
 
 
 @app.get("/channel/{id}", tags=["main"])

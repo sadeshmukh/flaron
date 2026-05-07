@@ -1,6 +1,7 @@
 import logging
 
 from upstash_redis import Redis
+from upstash_redis.asyncio import Redis as AsyncRedis
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -8,6 +9,9 @@ if __name__ == "__main__":
     load_dotenv()
 
 redis = Redis.from_env()
+async_redis = AsyncRedis.from_env()
+
+CACHE_STREAM_KEY = "cache_updates"
 
 _id_to_name: dict[str, str] = {}
 _name_to_data: dict[str, dict] = {}  # name -> {"id": str, "private": bool}
@@ -51,6 +55,7 @@ def cache_channel(id: str, name: str, private: bool = False):
     else:
         pipe.srem(PRIVATE_CHANNEL_IDS_KEY, id)
     pipe.exec()
+    redis.xadd(CACHE_STREAM_KEY, "*", {"op": "s", "i": id, "n": name, "p": "1" if private else "0"}, maxlen=1000, approximate_trim=True)
 
 
 def get_cached_channel(id: str) -> str | None:
@@ -85,6 +90,8 @@ def cache_channels(mapping: dict[str, dict]):
     if public_ids:
         pipe.srem(PRIVATE_CHANNEL_IDS_KEY, *public_ids)
     pipe.exec()
+    for id, data in mapping.items():
+        redis.xadd(CACHE_STREAM_KEY, "*", {"op": "s", "i": id, "n": data["name"], "p": "1" if data.get("private") else "0"}, maxlen=1000, approximate_trim=True)
 
 
 def get_cached_channels(ids: list[str]) -> dict[str, str | None]:
@@ -148,6 +155,45 @@ def invalidate_channel(id: str):
         pipe.delete(f"channel_name:{name}")
     pipe.srem(PRIVATE_CHANNEL_IDS_KEY, id)
     pipe.exec()
+    redis.xadd(CACHE_STREAM_KEY, "*", {"op": "d", "i": id}, maxlen=1000, approximate_trim=True)
+
+
+def get_stream_last_id() -> str:
+    entries = redis.xrevrange(CACHE_STREAM_KEY, count=1)
+    if entries:
+        return entries[0][0]
+    return "0-0"
+
+
+def _apply_stream_event(fields: dict):
+    op = fields.get("op")
+    if op == "s":
+        eid, name, private = fields["i"], fields["n"], fields.get("p") == "1"
+        _id_to_name[eid] = name
+        _name_to_data[name] = {"id": eid, "private": private}
+    elif op == "d":
+        eid = fields["i"]
+        old_name = _id_to_name.pop(eid, None)
+        if old_name:
+            _name_to_data.pop(old_name, None)
+
+
+async def cache_update_loop(poll_interval: float = 2.0):
+    import asyncio
+
+    last_id = get_stream_last_id()
+    while True:
+        await asyncio.sleep(poll_interval)
+        try:
+            results = await async_redis.xread(streams={CACHE_STREAM_KEY: last_id}, count=100)
+            if not results:
+                continue
+            for _stream, entries in results:
+                for entry_id, fields in entries:
+                    last_id = entry_id
+                    _apply_stream_event(fields)
+        except Exception as e:
+            logging.warning(f"cache stream poll error: {e}")
 
 
 def purge_channel_cache():

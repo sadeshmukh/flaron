@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
-from cache import init_cache, search_cached_channels
+from cache import init_cache, search_cached_channels, cache_update_loop
 from private import cname_private
 from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
 from utils import _env
@@ -198,6 +198,7 @@ async def reveal_channels(
 
 async def main():
     init_cache()
+    asyncio.create_task(cache_update_loop())
     auth = await app.client.auth_test()
     user_id = auth.get("user_id")
     if not isinstance(user_id, str) or not user_id:
