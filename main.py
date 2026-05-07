@@ -43,6 +43,7 @@ from userbot import (
     install_info,
     app_info,
     _resolve_channel_names,
+    users_search,
 )
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
@@ -191,10 +192,12 @@ async def channel_by_name(name: str):
 
 @app.post("/cnames", tags=["main"])
 async def channels_by_name(
-    names: list[str], x_admin_key: str | None = Header(default=None)
+    names: list[str],
+    x_admin_key: str | None = Header(default=None),
+    bypass: bool = False,
 ):
-    """get channels in bulk! admin key only required to bypass cache"""
-    bypass = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
+    """get channels in bulk! admin key + bypass=true required to bypass cache"""
+    bypass = bypass and x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
     if bypass:
         logger.info(f"BYPASS {names}")
     if len(names) > 2000 and not bypass:
@@ -261,6 +264,21 @@ async def _app_info(id: str):
 @app.get("/emoji/{name}", tags=["main"])
 async def emoji(name: str):
     return await emoji_info(name)
+
+
+users_search_cache = TTLCache(maxsize=1000, ttl=3600)
+
+
+@app.get("/users/search", tags=["main"])
+async def search_users(q: str):
+    if len(q) > 100:
+        return {"error": "query too long"}
+    if q in users_search_cache:
+        return {"data": users_search_cache[q]}
+    data = await users_search(q)
+    if not data.get("error"):
+        users_search_cache[q] = data.get("data", [])
+    return data
 
 
 @app.get("/admin/search")

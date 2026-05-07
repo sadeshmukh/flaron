@@ -54,7 +54,8 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
     if cmd == "ping":
         await respond("pong")
 
-    elif cmd == "emoji":
+    elif (match := cmd[0] == ":" and cmd[-1] == ":") or cmd == "emoji":
+        args = [cmd[1:-1]] if match else args
         if len(args) != 1:
             return await respond(f"Usage: `{BASE_CMD} emoji <name>`")
         emoji = args[0].strip(":")
@@ -76,7 +77,10 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             )
             + (synonym_text if len(info.get("synonyms", [])) > 0 else "")
         )
-    elif cmd == "app":
+
+    elif (match := re.match(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", cmd)) or cmd == "app":
+        if match:
+            args = [cmd]
         if len(args) != 1:
             return await respond(f"Usage: `{BASE_CMD} app @bot")
         identifier = args[0]
@@ -114,7 +118,15 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 if app_info_data.get("description")
                 else ""
             )
+            + f"https://flaron.halceon.dev/?q={user_id}"
         )
+    elif cmd == "q":
+        if len(args) != 1:
+            return await respond(f"Usage: `{BASE_CMD} q <query>`")
+        query = args[0]
+        query = re.sub(r"<[@#]([A-Z0-9]+)(?:\|[^>]*)?>", r"\1", query)
+
+        await respond("http://flaron.halceon.dev/?q=" + query)
     elif cmd == "search":
         if len(args) < 1:
             return await respond(f"search ~key~ q")

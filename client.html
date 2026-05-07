@@ -68,6 +68,61 @@
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.75rem;
+        position: relative;
+      }
+
+      .suggestions {
+        position: absolute;
+        top: calc(100% + 2px);
+        left: 1.6rem;
+        right: 2.5rem;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        z-index: 20;
+      }
+
+      .suggestion-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.35rem 0.65rem;
+        cursor: pointer;
+      }
+
+      .suggestion-row:hover,
+      .suggestion-row.focused {
+        background: var(--dimmer);
+      }
+
+      .suggestion-pfp {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 2px;
+        flex-shrink: 0;
+        background: var(--dimmer);
+        object-fit: cover;
+      }
+
+      .suggestion-pfp-placeholder {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 2px;
+        flex-shrink: 0;
+        background: var(--dimmer);
+      }
+
+      .suggestion-name {
+        color: var(--fg);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .suggestion-sub {
+        color: var(--dim);
+        font-size: 0.75rem;
+        white-space: nowrap;
       }
 
       .prompt {
@@ -452,7 +507,7 @@
         </h1>
       </header>
 
-      <div class="input-row">
+      <div class="input-row" @click.outside="showSuggestions = false">
         <span
           class="prompt"
           :class="{ admin: adminSearch, 'priv-filter': !adminSearch && filter === 'private' }"
@@ -461,7 +516,11 @@
         <input
           type="text"
           x-model="query"
-          @keydown.enter="search()"
+          @input="onQueryInput()"
+          @keydown.enter.prevent="suggestionIndex >= 0 ? selectSuggestion(userSuggestions[suggestionIndex]) : (showSuggestions = false, search())"
+          @keydown.arrow-down.prevent="suggestionIndex = Math.min(suggestionIndex + 1, userSuggestions.length - 1)"
+          @keydown.arrow-up.prevent="suggestionIndex = Math.max(suggestionIndex - 1, -1)"
+          @keydown.escape="showSuggestions = false"
           :class="{ 'admin-search': adminSearch, 'priv-filter': !adminSearch && filter === 'private' }"
           placeholder="channel/user/app ID, or channel name"
           autofocus
@@ -475,6 +534,38 @@
         >
           ?
         </button>
+        <div class="suggestions" x-show="showSuggestions || suggestionsLoading">
+          <div
+            x-show="suggestionsLoading"
+            class="suggestion-row"
+            style="color: var(--dim); cursor: default"
+          >
+            searching…
+          </div>
+          <template x-for="(u, i) in userSuggestions" :key="u.id">
+            <div
+              class="suggestion-row"
+              :class="{ focused: i === suggestionIndex }"
+              @click="selectSuggestion(u)"
+              @mouseenter="suggestionIndex = i"
+            >
+              <template x-if="u.imageUrl">
+                <img class="suggestion-pfp" :src="u.imageUrl" />
+              </template>
+              <template x-if="!u.imageUrl">
+                <div class="suggestion-pfp-placeholder"></div>
+              </template>
+              <span
+                class="suggestion-name"
+                x-text="u.display_name || u.real_name || u.name"
+              ></span>
+              <span
+                class="suggestion-sub"
+                x-text="u.name !== (u.display_name || u.real_name) ? '@' + u.name : u.id"
+              ></span>
+            </div>
+          </template>
+        </div>
       </div>
 
       <!-- Badges -->
@@ -510,8 +601,16 @@
           ><span class="help-val">user by ID</span>
         </div>
         <div class="help-row">
+          <span class="help-key">@name</span
+          ><span class="help-val">user search (autocomplete)</span>
+        </div>
+        <div class="help-row">
           <span class="help-key">A0123456</span
           ><span class="help-val">app by ID</span>
+        </div>
+        <div class="help-row">
+          <span class="help-key">:emoji-name:</span
+          ><span class="help-val">emoji lookup</span>
         </div>
         <div class="help-row">
           <span class="help-key">!word1 word2</span
@@ -628,6 +727,55 @@
       <div x-show="lookups.length > 0 && !loading" class="lookups-list">
         <template x-for="(item, i) in lookups" :key="i">
           <div>
+            <template x-if="item.type === 'emoji'">
+              <div class="lookup">
+                <div
+                  class="lookup-name"
+                  style="display: flex; align-items: center; gap: 0.75rem"
+                >
+                  <img
+                    x-show="item.data.url"
+                    :src="item.data.url"
+                    style="
+                      width: 2rem;
+                      height: 2rem;
+                      image-rendering: pixelated;
+                    "
+                  />
+                  <span x-text="':' + item.name + ':'"></span>
+                </div>
+                <div class="lookup-meta">
+                  <span x-show="item.data.is_alias" style="color: var(--amber)"
+                    >alias</span
+                  >
+                  <span
+                    x-show="item.data.is_alias && item.data.canonical"
+                    x-text="'→ :' + item.data.canonical + ':'"
+                  ></span>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.user_display || item.data.user_id"
+                >
+                  <div class="lookup-label">added by</div>
+                  <a
+                    class="user-link"
+                    :href="`https://hackclub.slack.com/team/${item.data.user_id}`"
+                    target="_blank"
+                    x-text="item.data.user_display || item.data.user_id"
+                  ></a>
+                </div>
+                <div class="lookup-section" x-show="item.data.synonyms?.length">
+                  <div class="lookup-label">also known as</div>
+                  <div class="prev-names">
+                    <template x-for="s in (item.data.synonyms || [])" :key="s">
+                      <span x-text="':' + s + ':'"></span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+
             <template x-if="item.type === 'channel'">
               <div class="lookup">
                 <div class="lookup-name">
@@ -724,17 +872,84 @@
 
             <template x-if="item.type === 'user'">
               <div class="lookup">
-                <div
-                  class="lookup-name"
-                  x-text="'@' + (item.data.user?.name || item.data.user?.id)"
-                ></div>
+                <div class="lookup-name">
+                  <span
+                    x-text="'@' + (item.data.user?.name || item.data.user?.id)"
+                  ></span>
+                  <span class="badge-archived" x-show="item.data.user?.deleted">
+                    deleted</span
+                  >
+                </div>
                 <div class="lookup-meta">
                   <span x-text="item.data.user?.id"></span>
                   <span x-show="item.data.user?.is_bot">bot</span>
                   <span
-                    x-show="item.data.user?.real_name"
+                    x-show="item.data.user?.real_name && item.data.user?.real_name !== item.data.user?.name"
                     x-text="item.data.user?.real_name"
                   ></span>
+                  <span
+                    x-show="item.data.user?.display_name && item.data.user?.display_name !== item.data.user?.name && item.data.user?.display_name !== item.data.user?.real_name"
+                    x-text="'&quot;' + item.data.user?.display_name + '&quot;'"
+                  ></span>
+                  <span
+                    x-show="item.data.user?.is_admin"
+                    style="color: var(--accent)"
+                    >admin</span
+                  >
+                  <span
+                    x-show="item.data.user?.is_owner"
+                    style="color: var(--accent)"
+                    >owner</span
+                  >
+                  <span
+                    x-show="item.data.user?.is_primary_owner"
+                    style="color: var(--accent)"
+                    >primary owner</span
+                  >
+                  <span
+                    x-show="item.data.user?.is_restricted"
+                    style="color: var(--amber)"
+                    >restricted</span
+                  >
+                  <span
+                    x-show="item.data.user?.is_ultra_restricted"
+                    style="color: var(--amber)"
+                    >ultra restricted</span
+                  >
+                </div>
+                <div class="lookup-section" x-show="item.data.user?.title">
+                  <div class="lookup-label">title</div>
+                  <span x-text="item.data.user?.title"></span>
+                </div>
+                <div class="lookup-section" x-show="item.data.user?.tz_label">
+                  <div class="lookup-label">timezone</div>
+                  <span x-text="item.data.user?.tz_label"></span>
+                </div>
+                <div class="lookup-section" x-show="item.data.user?.phone">
+                  <div class="lookup-label">phone</div>
+                  <span x-text="item.data.user?.phone"></span>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.user?.is_bot && item.data.user?.app_id"
+                >
+                  <div class="lookup-label">app</div>
+                  <span x-text="item.data.user?.app_id"></span>
+                  <span
+                    x-show="item.data.user?.always_active"
+                    style="color: var(--dim)"
+                  >
+                    · always active</span
+                  >
+                </div>
+                <div class="lookup-section" x-show="item.data.creator_id">
+                  <div class="lookup-label">creator</div>
+                  <a
+                    class="user-link"
+                    :href="`https://hackclub.slack.com/team/${item.data.creator_id}`"
+                    target="_blank"
+                    x-text="'@' + (item.data.creator_name || item.data.creator_id)"
+                  ></a>
                 </div>
                 <div
                   class="lookup-section"
@@ -760,18 +975,44 @@
 
             <template x-if="item.type === 'app'">
               <div class="lookup">
-                <div
-                  class="lookup-name"
-                  x-text="item.data.app?.name || item.data.app?.id || 'app'"
-                ></div>
+                <div class="lookup-name">
+                  <span
+                    x-text="item.data.app?.name || item.data.app?.app_id || 'app'"
+                  ></span>
+                </div>
                 <div class="lookup-meta">
                   <span
                     x-show="item.data.app?.app_id"
                     x-text="item.data.app?.app_id"
                   ></span>
                   <span
-                    x-show="item.data.app?.bot_id"
-                    x-text="item.data.app?.bot_id"
+                    x-show="item.data.app?.username"
+                    x-text="'@' + item.data.app?.username"
+                  ></span>
+                  <span
+                    x-show="item.data.app?.count_in"
+                    x-text="item.data.app?.count_in + ' channels'"
+                  ></span>
+                  <a
+                    class="user-link"
+                    x-show="item.data.app?.app_id"
+                    :href="`https://hackclub.slack.com/marketplace/${item.data.app?.app_id}`"
+                    target="_blank"
+                    style="color: var(--dim)"
+                    >marketplace ↗</a
+                  >
+                </div>
+                <div class="lookup-section" x-show="item.data.app?.tagline">
+                  <div class="lookup-label">tagline</div>
+                  <span x-text="item.data.app?.tagline"></span>
+                </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.data.app?.date_installed"
+                >
+                  <div class="lookup-label">installed</div>
+                  <span
+                    x-text="new Date((item.data.app?.date_installed ?? 0) * 1000).toLocaleDateString()"
                   ></span>
                 </div>
                 <div
@@ -904,6 +1145,11 @@
           adminSearch: false,
           bypassCache: false,
           adminMsg: "",
+          userSuggestions: [],
+          showSuggestions: false,
+          suggestionsLoading: false,
+          suggestionIndex: -1,
+          _suggestTimer: null,
 
           init() {
             this.adminKey = localStorage.getItem("flaron_admin_key") || "";
@@ -918,23 +1164,97 @@
             }
           },
 
+          onQueryInput() {
+            const q = this.query;
+            clearTimeout(this._suggestTimer);
+            if (q.startsWith("@") && q.length > 1) {
+              this.suggestionsLoading = true;
+              this.showSuggestions = true;
+              this._suggestTimer = setTimeout(
+                () => this.fetchSuggestions(q.slice(1)),
+                280,
+              );
+            } else {
+              this.userSuggestions = [];
+              this.showSuggestions = false;
+              this.suggestionsLoading = false;
+              this.suggestionIndex = -1;
+            }
+          },
+
+          async fetchSuggestions(q) {
+            if (!q.trim()) return;
+            try {
+              const res = await fetch(
+                `${API}/users/search?q=${encodeURIComponent(q)}`,
+              );
+              const json = await res.json();
+              const users = (json.data ?? []).slice(0, 8);
+              this.userSuggestions = users.map((u) => ({
+                ...u,
+                imageUrl: null,
+              }));
+              this.suggestionIndex = -1;
+              this.suggestionsLoading = false;
+              this.showSuggestions = users.length > 0;
+              users.forEach(async (u, i) => {
+                try {
+                  const r = await fetch(
+                    `https://cachet.dunkirk.sh/users/${u.id}`,
+                  );
+                  const d = await r.json();
+                  if (this.userSuggestions[i]?.id === u.id)
+                    this.userSuggestions[i] = {
+                      ...this.userSuggestions[i],
+                      imageUrl: d.imageUrl,
+                    };
+                } catch {}
+              });
+            } catch {
+              this.userSuggestions = [];
+              this.showSuggestions = false;
+              this.suggestionsLoading = false;
+            }
+          },
+
+          selectSuggestion(user) {
+            this.query = user.id;
+            this.userSuggestions = [];
+            this.showSuggestions = false;
+            this.suggestionIndex = -1;
+            this.$nextTick(() => this.search());
+          },
+
           async lookupOne(token) {
             const raw = token.startsWith("@") ? token.slice(1) : token;
             try {
-              if (/^U[A-Z0-9]{6,}$/i.test(raw)) {
+              if (/^:.+:$/.test(raw)) {
+                const name = raw.slice(1, -1);
+                const res = await fetch(
+                  `${API}/emoji/${encodeURIComponent(name)}`,
+                );
+                const json = await res.json();
+                if (json.error) return null;
+                return { type: "emoji", name, data: json.data ?? json };
+              } else if (/^U[A-Z0-9]{6,}$/i.test(raw)) {
                 const res = await fetch(
                   `${API}/user/${encodeURIComponent(raw)}`,
                 );
                 const json = await res.json();
                 if (json.error) return null;
-                return { type: "user", data: json.data ?? json };
+                const data = json.data ?? json;
+                if (data.creator_id) {
+                  const map = await resolveUsers([data.creator_id]);
+                  data.creator_name = map[data.creator_id];
+                }
+                return { type: "user", data };
               } else if (/^A[A-Z0-9]{6,}$/i.test(raw)) {
                 const res = await fetch(
                   `${API}/app/${encodeURIComponent(raw)}`,
                 );
-                const data = await res.json();
-                if (data.error) return null;
-                return { type: "app", data };
+                const json = await res.json();
+                if (json.error) return null;
+                return { type: "app", data: json.data ?? json };
               } else {
                 const res = await fetch(
                   `${API}/channel/${encodeURIComponent(raw)}`,

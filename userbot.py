@@ -585,6 +585,35 @@ async def posters(cid: str) -> dict:
         return {"error": "unknown"}
 
 
+async def users_search(query: str) -> dict:
+    data = await edge(
+        "users/search",
+        jsondata={
+            "query": query,
+            # other: count, current_channel, default_workspace, enable_workspace_ranking, include_profile_only_users
+        },
+    )
+    if err := data.get("error"):
+        logger.error(f"users search error: {err}")
+        return {"error": "unknown"}
+    try:
+        users = data.get("results", [])
+        return {
+            "data": [
+                {
+                    "id": user.get("id"),
+                    "name": user.get("name"),
+                    "real_name": user.get("real_name"),
+                    "display_name": user.get("profile", {}).get("display_name"),
+                }
+                for user in users
+            ]
+        }
+    except Exception as err:
+        logger.error(f"users search parsing error: {err}")
+        return {"error": "unknown"}
+
+
 async def promote_member(user_id: str) -> dict:
     # from mcg
     DO_NOT_PROMOTE = ["U07CAPBB9B5", "U07NKS9S8GZ"]
@@ -1039,7 +1068,8 @@ if __name__ == "__main__":
 
     # asyncio.run(list_mcgs())
     # print(asyncio.run(testty("A0ATTN5H7S9")))
-    print(asyncio.run(posters("C0AR0M43H61")))
+    # print(asyncio.run(posters("C0AR0M43H61")))
+    print(asyncio.run(users_search("sahil")))
 
 
 # endregion
