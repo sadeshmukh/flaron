@@ -194,10 +194,11 @@ async def channels_by_name(
     bypass: bool = False,
 ):
     """get channels in bulk! admin key + bypass=true required to bypass cache"""
-    bypass = bypass and x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
+    admin_available = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
+    bypass = bypass and admin_available
     if bypass:
         logger.info(f"BYPASS {names}")
-    if len(names) > 2000 and not bypass:
+    if len(names) > 2000 and not admin_available:
         return {"error": "too many names"}
     return await bulk_cname_to_cid(names, bypass_cache=bypass)
 
