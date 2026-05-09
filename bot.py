@@ -14,7 +14,12 @@ if __name__ == "__main__":
 
 logging.basicConfig(level=logging.INFO, format="FLARON [%(name)s]: %(message)s")
 
-from cache import init_cache, search_cached_channels, cache_update_loop, is_channel_blacklisted
+from cache import (
+    init_cache,
+    search_cached_channels,
+    cache_update_loop,
+    is_channel_blacklisted,
+)
 from external import cname_private
 from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
 from utils import _env
@@ -51,6 +56,10 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
 
     cmd = tokens[0]
     args = tokens[1:]
+    if not args and cmd not in {"emoji", "app", "q", "search", "ping"}:
+        # this is a search now
+        cmd = "q"
+        args = [cmd] + args
     if cmd == "ping":
         await respond("pong")
 
@@ -78,9 +87,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             + (synonym_text if len(info.get("synonyms", [])) > 0 else "")
         )
 
-    elif (match := re.match(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", cmd)) or cmd == "app":
-        if match:
-            args = [cmd]
+    elif cmd == "app":
         if len(args) != 1:
             return await respond(f"Usage: `{BASE_CMD} app @bot")
         identifier = args[0]
@@ -137,7 +144,11 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 logging.warning("I love testing in prod: " + str(command))
 
             return await respond("who do you think you are")
-        matches = [m for m in search_cached_channels(query) if not is_channel_blacklisted(m["name"])]
+        matches = [
+            m
+            for m in search_cached_channels(query)
+            if not is_channel_blacklisted(m["name"])
+        ]
         if not matches:
             return await respond(f"none matching `{query}`.")
         matches.sort(key=lambda x: x["name"])
@@ -192,7 +203,11 @@ async def reveal_channels(
             return (await cname_private(cid)).get("name", cid)
         return cinfo.get("data", {}).get("name", cid)
 
-    names = [n for n in await asyncio.gather(*[cname(cid) for cid in cids]) if not is_channel_blacklisted(n)]
+    names = [
+        n
+        for n in await asyncio.gather(*[cname(cid) for cid in cids])
+        if not is_channel_blacklisted(n)
+    ]
     if not names:
         return await ephemeral("Couldn't find any channel IDs in the message :(")
     await ephemeral("Channels mentioned: " + ", ".join(f"`#{name}`" for name in names))
