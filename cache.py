@@ -90,8 +90,6 @@ def cache_channels(mapping: dict[str, dict]):
     if public_ids:
         pipe.srem(PRIVATE_CHANNEL_IDS_KEY, *public_ids)
     pipe.exec()
-    for id, data in mapping.items():
-        redis.xadd(CACHE_STREAM_KEY, "*", {"op": "s", "i": id, "n": data["name"], "p": "1" if data.get("private") else "0"}, maxlen=1000, approximate_trim=True)
 
 
 def get_cached_channels(ids: list[str]) -> dict[str, str | None]:

@@ -19,4 +19,9 @@ async def cname_private(id: str) -> dict:
             return data
 
 
-# TODO: bulk? fuzzer?
+async def trust_factor(user_id: str) -> dict:
+    url = f"https://hackatime.hackclub.com/api/v1/users/{user_id}/trust_factor"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as res:
+            data = await res.json()
+            return data  # trust_level: verified, trust_value: 0/1/2 (blue/red/green/ (not yellow))
