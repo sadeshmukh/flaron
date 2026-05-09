@@ -260,6 +260,23 @@
         z-index: 1;
       }
 
+      .promote-btn {
+        font-family: inherit;
+        font-size: 0.7rem;
+        background: transparent;
+        border: 1px solid var(--amber);
+        color: var(--amber);
+        padding: 0.1rem 0.4rem;
+        cursor: pointer;
+        transition: opacity 0.1s;
+        vertical-align: middle;
+      }
+
+      .promote-btn:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
       /* ── Input hint ── */
       .input-hint {
         color: var(--dim);
@@ -911,11 +928,25 @@
                     style="color: var(--amber)"
                     >restricted</span
                   >
+                  <button
+                    x-show="item.data.user?.is_restricted"
+                    class="promote-btn"
+                    :disabled="!!promoteStates[item.data.user?.id]"
+                    @click="promoteUser(item.data.user?.id)"
+                    x-text="promoteStates[item.data.user?.id] || 'promote'"
+                  ></button>
                   <span
                     x-show="item.data.user?.is_ultra_restricted"
                     style="color: var(--amber)"
                     >ultra restricted</span
                   >
+                  <button
+                    x-show="item.data.user?.is_ultra_restricted"
+                    class="promote-btn"
+                    :disabled="!!promoteStates[item.data.user?.id]"
+                    @click="promoteUser(item.data.user?.id)"
+                    x-text="promoteStates[item.data.user?.id] || 'promote'"
+                  ></button>
                 </div>
                 <div class="lookup-section" x-show="item.data.user?.title">
                   <div class="lookup-label">title</div>
@@ -928,6 +959,13 @@
                 <div class="lookup-section" x-show="item.data.user?.phone">
                   <div class="lookup-label">phone</div>
                   <span x-text="item.data.user?.phone"></span>
+                </div>
+                <div class="lookup-section" x-show="item.data.fraud">
+                  <div class="lookup-label">trust</div>
+                  <span
+                    x-text="item.data.fraud"
+                    :style="item.data.fraud === 'verified' ? 'color: var(--accent)' : 'color: var(--amber)'"
+                  ></span>
                 </div>
                 <div
                   class="lookup-section"
@@ -1150,6 +1188,7 @@
           suggestionsLoading: false,
           suggestionIndex: -1,
           _suggestTimer: null,
+          promoteStates: {},
 
           init() {
             this.adminKey = localStorage.getItem("flaron_admin_key") || "";
@@ -1308,6 +1347,22 @@
               this.adminMsg = "request failed";
             }
             setTimeout(() => (this.adminMsg = ""), 4000);
+          },
+
+          async promoteUser(userId) {
+            this.promoteStates[userId] = "promoting…";
+            try {
+              const res = await fetch(
+                `${API}/promote/${encodeURIComponent(userId)}`,
+              );
+              const json = await res.json();
+              this.promoteStates[userId] = json.error ? json.error : "promoted";
+            } catch {
+              this.promoteStates[userId] = "failed";
+            }
+            setTimeout(() => {
+              delete this.promoteStates[userId];
+            }, 4000);
           },
 
           get filteredResults() {

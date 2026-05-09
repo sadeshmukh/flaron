@@ -346,6 +346,9 @@ async def promote(id: str, request: Request):
         host = request.client and request.client.host
         logging.warning(f"{host} attempted to promote {id}: {err}!!")
         return {"error": "unknown"}
+    if user_cache.get(id):
+        del user_cache[id]
+        print(user_cache.get(id))
     return {"data": res.get("data", {})}
 
 
