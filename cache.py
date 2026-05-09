@@ -201,7 +201,7 @@ def _apply_stream_event(fields: dict):
             _name_to_data.pop(old_name, None)
 
 
-async def cache_update_loop(poll_interval: float = 2.0):
+async def cache_update_loop(poll_interval: float = 30.0):
     import asyncio
 
     last_id = get_stream_last_id()
