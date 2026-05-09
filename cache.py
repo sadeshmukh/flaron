@@ -21,6 +21,9 @@ _failed_channels_dirty: bool = False
 FAILED_CHANNELS_KEY = "failed_channels"
 PRIVATE_CHANNEL_IDS_KEY = "private_channel_ids"
 
+_blacklisted_channels: set[str] = set()
+BLACKLISTED_CHANNELS_KEY = "blacklisted_channels"
+
 
 def init_cache():
     cursor = 0
@@ -42,6 +45,10 @@ def init_cache():
     failed = redis.smembers(FAILED_CHANNELS_KEY)
     if failed:
         _failed_channels.update(failed)
+
+    blacklisted = redis.smembers(BLACKLISTED_CHANNELS_KEY)
+    if blacklisted:
+        _blacklisted_channels.update(blacklisted)
 
 
 def cache_channel(id: str, name: str, private: bool = False):
@@ -124,6 +131,24 @@ def unmark_channel_failed(id: str):
 
 def is_channel_failed(id: str) -> bool:
     return id in _failed_channels
+
+
+def blacklist_channel(id: str):
+    _blacklisted_channels.add(id)
+    redis.sadd(BLACKLISTED_CHANNELS_KEY, id)
+
+
+def unblacklist_channel(id: str):
+    _blacklisted_channels.discard(id)
+    redis.srem(BLACKLISTED_CHANNELS_KEY, id)
+
+
+def is_channel_blacklisted(id: str) -> bool:
+    return id in _blacklisted_channels
+
+
+def get_blacklisted_channels() -> set[str]:
+    return set(_blacklisted_channels)
 
 
 def sync_failed_channels():

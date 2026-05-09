@@ -29,6 +29,9 @@ from cache import (
     is_channel_failed,
     failed_channels_sync_loop,
     cache_channels,
+    blacklist_channel,
+    unblacklist_channel,
+    get_blacklisted_channels,
 )
 from userbot import (
     emoji_info,
@@ -181,6 +184,8 @@ async def channel_by_id(id: str):
 
 @app.get("/cname/{name}")
 async def channel_by_name(name: str):
+    if name in get_blacklisted_channels():
+        return {"error": "nonexistent"}
     result = await bulk_cname_to_cid([name])
     if entry := result.get(name):
         return await channel(entry["id"])
@@ -201,7 +206,8 @@ async def channels_by_name(
     if len(names) > 2000 and not admin_available:
         return {"error": "too many names"}
     data = await bulk_cname_to_cid(names, bypass_cache=bypass)
-    return data
+    blacklisted = get_blacklisted_channels()
+    return {k: v for k, v in data.items() if k not in blacklisted}
 
 
 @app.get("/channel/{id}", tags=["main"])
@@ -335,6 +341,31 @@ async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
     return {"count": len(startup_stale), "stale": startup_stale}
+
+
+@app.get("/admin/blacklist/add")
+async def add_blacklist(name: str, x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    if len(name) > 100:
+        return {"error": "name too long"}
+    blacklist_channel(name)
+    return {"status": "ok", "blacklisted": name}
+
+
+@app.get("/admin/blacklist/remove")
+async def remove_blacklist(name: str, x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    unblacklist_channel(name)
+    return {"status": "ok", "unblacklisted": name}
+
+
+@app.get("/admin/blacklist/list")
+async def list_blacklist(x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    return {"blacklisted_channels": list(get_blacklisted_channels())}
 
 
 @app.get("/promote/{id}")
