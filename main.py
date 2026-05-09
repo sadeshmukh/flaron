@@ -343,7 +343,7 @@ async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     return {"count": len(startup_stale), "stale": startup_stale}
 
 
-@app.get("/admin/blacklist/add")
+@app.post("/admin/blacklist/add")
 async def add_blacklist(name: str, x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
@@ -353,7 +353,7 @@ async def add_blacklist(name: str, x_admin_key: str | None = Header(default=None
     return {"status": "ok", "blacklisted": name}
 
 
-@app.get("/admin/blacklist/remove")
+@app.delete("/admin/blacklist/remove")
 async def remove_blacklist(name: str, x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
