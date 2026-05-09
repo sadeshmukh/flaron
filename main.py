@@ -163,6 +163,8 @@ async def channel(id: str):
         # private
         name = (await cname_private(id)).get("name", "unknown")
         ret["name"] = name
+        if name in get_blacklisted_channels():
+            return {"error": "nonexistent"}
         return ret
 
     # public below
