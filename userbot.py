@@ -653,6 +653,35 @@ async def users_search(query: str) -> dict:
         return {"error": "unknown"}
 
 
+async def public_channel_search(query: str) -> dict:
+    data = await edge(
+        "channels/search",
+        jsondata={
+            "query": query,
+        },
+    )
+    if err := data.get("error"):
+        logger.error(f"public channel search error: {err}")
+        return {"error": "unknown"}
+    try:
+        channels = data.get("results", [])
+        logging.info(data)
+        return {
+            "data": [
+                {
+                    "id": channel.get("id"),
+                    "name": channel.get("name"),
+                    "created": channel.get("created"),
+                    "creator": channel.get("creator"),
+                }
+                for channel in channels
+            ]
+        }
+    except Exception as err:
+        logger.error(f"public channel search parsing error: {err}")
+        return {"error": "unknown"}
+
+
 async def promote_member(user_id: str) -> dict:
     # from mcg
     DO_NOT_PROMOTE = ["U07CAPBB9B5", "U07NKS9S8GZ"]
@@ -1108,7 +1137,7 @@ if __name__ == "__main__":
     # asyncio.run(list_mcgs())
     # print(asyncio.run(testty("A0ATTN5H7S9")))
     # print(asyncio.run(posters("C0AR0M43H61")))
-    print(asyncio.run(users_search("sahil")))
+    print(asyncio.run(public_channel_search("sahil")))
 
 
 # endregion

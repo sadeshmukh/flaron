@@ -42,6 +42,7 @@ from userbot import (
     bulk_cname_to_cid,
     posters,
     promote_member,
+    public_channel_search,
     user_info_edge,
     install_info,
     app_info,
@@ -294,6 +295,21 @@ async def search_users(q: str):
     data = await users_search(q)
     if not data.get("error"):
         users_search_cache[q] = data.get("data", [])
+    return data
+
+
+channels_search_cache = TTLCache(maxsize=1000, ttl=3600)
+
+
+@app.get("/channels/search", tags=["main"])
+async def search_channels(q: str):
+    if len(q) > 100:
+        return {"error": "query too long"}
+    if q in channels_search_cache:
+        return {"data": channels_search_cache[q]}
+    data = await public_channel_search(q)
+    if not data.get("error"):
+        channels_search_cache[q] = data.get("data", [])
     return data
 
 
