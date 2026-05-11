@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 
@@ -211,6 +212,19 @@ async def reveal_channels(
     if not names:
         return await ephemeral("Couldn't find any channel IDs in the message :(")
     await ephemeral("Channels mentioned: " + ", ".join(f"`#{name}`" for name in names))
+
+
+# @app.event("message")
+# async def handle_message_events(
+#     event: dict, client: AsyncWebClient, respond: AsyncRespond
+# ):
+#     if event.get("subtype") != "message_changed":
+#         return
+#     # unfurls -> examine channels
+#     attachments = event.get("message", {}).get("attachments", [])
+#     channels = []
+
+# TBD: dm da bot with thingies
 
 
 async def main():

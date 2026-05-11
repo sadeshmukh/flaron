@@ -189,7 +189,9 @@ async def channel_by_name(name: str):
     if name in get_blacklisted_channels():
         return {"error": "nonexistent"}
     result = await bulk_cname_to_cid([name])
-    if entry := result.get(name):
+    if result.get("error"):
+        return result
+    if entry := result.get("data", {}).get(name):
         return await channel(entry["id"])
     return {"error": "nonexistent"}
 
@@ -207,9 +209,12 @@ async def channels_by_name(
         logger.info(f"BYPASS {names}")
     if len(names) > 2000 and not admin_available:
         return {"error": "too many names"}
-    data = await bulk_cname_to_cid(names, bypass_cache=bypass)
+    result = await bulk_cname_to_cid(names, bypass_cache=bypass)
+    if result.get("error"):
+        return result
+    data = result.get("data", {})
     blacklisted = get_blacklisted_channels()
-    return {k: v for k, v in data.items() if k not in blacklisted}
+    return {"data": {k: v for k, v in data.items() if k not in blacklisted}}
 
 
 @app.get("/channel/{id}", tags=["main"])

@@ -513,6 +513,14 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
         override_XOXD=_env("XOXD_PROMOTE", XOXD),
     )
     if err := data.get("error"):
+        if err == "ratelimited":
+            for attempt in range(5):
+                await asyncio.sleep(2 * (attempt + 1))
+                retry = await _resolve_channel_names(names)
+                if retry:
+                    return retry
+            logger.error(f"channel name resolution ratelimited after 5 retries")
+            return {}
         if err == "invalid_message" and len(names) > 1:
             mid = len(names) // 2
             left, right = await asyncio.gather(
@@ -542,7 +550,39 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
         return {}
 
 
+_cname_queue: asyncio.Queue | None = None
+
+
+async def _cname_worker():
+    queue = _cname_queue
+    assert queue is not None
+    while True:
+        names, bypass, fut = await queue.get()
+        try:
+            result = await _bulk_cname_inner(names, bypass)
+            if not fut.done():
+                fut.set_result({"data": result})
+        except Exception as e:
+            if not fut.done():
+                fut.set_exception(e)
+        queue.task_done()
+
+
+def _get_cname_queue() -> asyncio.Queue:
+    global _cname_queue
+    if _cname_queue is None:
+        _cname_queue = asyncio.Queue()
+        asyncio.create_task(_cname_worker())
+    return _cname_queue
+
+
 async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dict:
+    fut = asyncio.get_running_loop().create_future()
+    await _get_cname_queue().put((names, bypass_cache, fut))
+    return await fut
+
+
+async def _bulk_cname_inner(names: list[str], bypass_cache: bool = False) -> dict:
     from cache import get_cached_channel_id, cache_channels
 
     ret = {}
@@ -562,7 +602,6 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
         cache_channels(
             {v["id"]: {"name": k, "private": v["private"]} for k, v in fetched.items()}
         )
-
         ret.update(fetched)
 
     return ret

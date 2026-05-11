@@ -1425,15 +1425,20 @@
                   headers: cnames_headers,
                   body: JSON.stringify(names),
                 });
-                const data = await res.json();
-                this.results = Object.entries(data)
-                  .filter(([, v]) => v && !v.error)
-                  .map(([name, v]) => ({
-                    name,
-                    id: v.id,
-                    private: v.private ?? false,
-                  }))
-                  .sort((a, b) => a.name.localeCompare(b.name));
+                const json = await res.json();
+                if (json.error) {
+                  this.error = json.error;
+                } else {
+                  const data = json.data ?? {};
+                  this.results = Object.entries(data)
+                    .filter(([, v]) => v && !v.error)
+                    .map(([name, v]) => ({
+                      name,
+                      id: v.id,
+                      private: v.private ?? false,
+                    }))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                }
               } else {
                 const tokens = q.split(/\s+/).filter(Boolean);
                 const results = await Promise.all(
