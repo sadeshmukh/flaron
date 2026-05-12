@@ -86,13 +86,6 @@ async def _re_resolve_startup_cache():
 async def lifespan(app: FastAPI):
 
     global commands
-    if not _env("LOGFIRE_WRITE_TOKEN", ""):
-        logger.warning("no logfire write token, won't log")
-    else:
-        logfire.configure(
-            token=_env("LOGFIRE_WRITE_TOKEN"),
-        )
-        logfire.instrument_fastapi(app)
     init_cache()
     await _re_resolve_startup_cache()
     if (data := await fetch_commands()).get("error"):
@@ -109,10 +102,18 @@ async def lifespan(app: FastAPI):
 
 # struct: {command name -> {name, usage, description, app_name, app_id,
 # icons: {image_32, image_48, image_64, image_72}}}
+if not _env("LOGFIRE_WRITE_TOKEN", ""):
+    logger.warning("no logfire write token, won't log")
+else:
+    logfire.configure(token=_env("LOGFIRE_WRITE_TOKEN"))
+
 app = FastAPI(
     lifespan=lifespan,
     openapi_tags=[{"name": "main"}],
 )
+
+if _env("LOGFIRE_WRITE_TOKEN", ""):
+    logfire.instrument_fastapi(app)
 
 app.add_middleware(
     CORSMiddleware,
