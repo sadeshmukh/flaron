@@ -253,10 +253,11 @@ async def user_info(id: str):
         else:
             data["installers"] = install_info_data.get("data", {}).get("installers", [])
             data["creator_id"] = install_info_data.get("data", {}).get("creator", {})
-    trust = await trust_factor(id)
-    idv_status = await idv_verified(id)
-    data["idv_status"] = idv_status.get("result")
-    data["fraud"] = trust.get("trust_level")
+    else:
+        trust = await trust_factor(id)
+        idv_status = await idv_verified(id)
+        data["idv_status"] = idv_status.get("result")
+        data["fraud"] = trust.get("trust_level")
 
     user_cache[id] = data
     return {"data": data}
