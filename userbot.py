@@ -35,6 +35,17 @@ USE_WEIRD_TEAM_ROUTE_THING = _env("UWTRT", "false").lower() == "true"
 # region primitives
 
 
+def sanitize_err(err: str, sensitive: list[str] | None = None) -> str:
+    if not sensitive:
+        sensitive = []
+    sensitive.extend([XOXC, XOXD, _env("XOXC_PROMOTE", ""), _env("XOXD_PROMOTE", "")])
+    sensitive = [s for s in sensitive if s]
+    for s in sensitive:
+        if s in err:
+            err = err.replace(s, "[redacted]")
+    return err
+
+
 async def req(
     path: str,
     form: dict = {},
@@ -65,7 +76,8 @@ async def req(
                 logger.info(
                     f"error in {path}: {data.get('error', 'this should never be seen')}"
                 )
-                logger.info(f"form data was: {form}")
+
+                logger.info(f"form data was: {sanitize_err(str(form))}")
                 return {"error": data.get("error")}
 
             return data
@@ -542,6 +554,8 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
                     "id": m.group(1),
                     "private": token == f"<#{m.group(1)}>",
                 }
+            elif token == name:
+                logger.warning(f"polluted name res: {name}")
             else:
                 logger.warning(f"what? {token} doesn't match @ {name}")
         return result

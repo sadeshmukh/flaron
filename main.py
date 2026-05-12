@@ -5,6 +5,7 @@ import asyncio
 
 from contextlib import asynccontextmanager
 from cachetools import TTLCache
+import logfire
 from fastapi import FastAPI, Header, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -85,6 +86,13 @@ async def _re_resolve_startup_cache():
 async def lifespan(app: FastAPI):
 
     global commands
+    if not _env("LOGFIRE_WRITE_TOKEN", ""):
+        logger.warning("no logfire write token, won't log")
+    else:
+        logfire.configure(
+            token=_env("LOGFIRE_WRITE_TOKEN"),
+        )
+        logfire.instrument_fastapi(app)
     init_cache()
     await _re_resolve_startup_cache()
     if (data := await fetch_commands()).get("error"):
