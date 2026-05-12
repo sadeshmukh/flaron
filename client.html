@@ -18,6 +18,8 @@
         --accent: #4ade80;
         --amber: #fbbf24;
         --red: #f87171;
+        --blue: #60a5fa;
+        --yellow: #facc15;
       }
 
       * {
@@ -499,6 +501,20 @@
         text-decoration: underline;
         text-underline-offset: 3px;
       }
+
+      .user-link-inner {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .user-link-pfp {
+        width: 1rem;
+        height: 1rem;
+        border-radius: 2px;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
     </style>
   </head>
   <body>
@@ -566,19 +582,22 @@
               @click="selectSuggestion(u)"
               @mouseenter="suggestionIndex = i"
             >
-              <template x-if="u.imageUrl">
+              <template x-if="u._kind === 'user' && u.imageUrl">
                 <img class="suggestion-pfp" :src="u.imageUrl" />
               </template>
-              <template x-if="!u.imageUrl">
+              <template x-if="u._kind !== 'channel' && !u.imageUrl">
                 <div class="suggestion-pfp-placeholder"></div>
+              </template>
+              <template x-if="u._kind === 'channel'">
+                <div class="suggestion-pfp-placeholder" style="display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:0.85rem">#</div>
               </template>
               <span
                 class="suggestion-name"
-                x-text="u.display_name || u.real_name || u.name"
+                x-text="u._kind === 'channel' ? '#' + u.name : (u.display_name || u.real_name || u.name)"
               ></span>
               <span
                 class="suggestion-sub"
-                x-text="u.name !== (u.display_name || u.real_name) ? '@' + u.name : u.id"
+                x-text="u._kind === 'channel' ? u.id : (u.name !== (u.display_name || u.real_name) ? '@' + u.name : u.id)"
               ></span>
             </div>
           </template>
@@ -622,6 +641,10 @@
           ><span class="help-val">user search (autocomplete)</span>
         </div>
         <div class="help-row">
+          <span class="help-key">#name</span
+          ><span class="help-val">channel search (autocomplete)</span>
+        </div>
+        <div class="help-row">
           <span class="help-key">A0123456</span
           ><span class="help-val">app by ID</span>
         </div>
@@ -658,6 +681,13 @@
               private
             </button>
           </div>
+          <button
+            class="toggle-btn"
+            :class="{ active: showDisplayNames }"
+            @click="showDisplayNames = !showDisplayNames"
+          >
+            display names
+          </button>
         </div>
         <hr class="help-sep" />
         <div class="help-controls">
@@ -796,7 +826,12 @@
             <template x-if="item.type === 'channel'">
               <div class="lookup">
                 <div class="lookup-name">
-                  <span x-text="'#' + (item.data.name || item.data.id)"></span>
+                  <a
+                    class="user-link"
+                    :href="`https://hackclub.slack.com/archives/${item.data.id}`"
+                    target="_blank"
+                    x-text="'#' + (item.data.name || item.data.id)"
+                  ></a>
                   <span class="badge-archived" x-show="item.data.is_archived">
                     archived</span
                   >
@@ -833,8 +868,7 @@
                         class="user-link"
                         :href="`https://hackclub.slack.com/team/${m}`"
                         target="_blank"
-                        x-text="'@' + (item.userMap?.[m] ?? m)"
-                      ></a>
+                      ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[m]?.imageUrl" :src="userDetails[m]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[m]?.displayName || userDetails[m]?.name || m"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.userMap?.[m] ?? m)"></span></a>
                     </template>
                   </div>
                 </div>
@@ -855,8 +889,7 @@
                           class="user-link"
                           :href="`https://hackclub.slack.com/team/${u}`"
                           target="_blank"
-                          x-text="'@' + (item.userMap?.[u] ?? u)"
-                        ></a>
+                        ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[u]?.imageUrl" :src="userDetails[u]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[u]?.displayName || userDetails[u]?.name || u"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.userMap?.[u] ?? u)"></span></a>
                       </template>
                     </div>
                   </template>
@@ -867,8 +900,7 @@
                     class="user-link"
                     :href="`https://hackclub.slack.com/team/${item.data.creator}`"
                     target="_blank"
-                    x-text="'@' + (item.userMap?.[item.data.creator] ?? item.data.creator)"
-                  ></a>
+                  ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[item.data.creator]?.imageUrl" :src="userDetails[item.data.creator]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[item.data.creator]?.displayName || userDetails[item.data.creator]?.name || item.data.creator"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.userMap?.[item.data.creator] ?? item.data.creator)"></span></a>
                 </div>
                 <div
                   class="lookup-section"
@@ -964,7 +996,19 @@
                   <div class="lookup-label">trust</div>
                   <span
                     x-text="item.data.fraud"
-                    :style="item.data.fraud === 'verified' ? 'color: var(--accent)' : 'color: var(--amber)'"
+                    :style="{
+                      blue: 'color: var(--blue)',
+                      green: 'color: var(--accent)',
+                      red: 'color: var(--red)',
+                      yellow: 'color: var(--yellow)',
+                    }[item.data.fraud] || 'color: var(--dim)'"
+                  ></span>
+                </div>
+                <div class="lookup-section" x-show="item.data.idv_status">
+                  <div class="lookup-label">identity</div>
+                  <span
+                    x-text="['verified_eligible','verified_but_over_18'].includes(item.data.idv_status) ? 'ID verified' : 'not verified'"
+                    :style="['verified_eligible','verified_but_over_18'].includes(item.data.idv_status) ? 'color: var(--accent)' : 'color: var(--dim)'"
                   ></span>
                 </div>
                 <div
@@ -986,8 +1030,7 @@
                     class="user-link"
                     :href="`https://hackclub.slack.com/team/${item.data.creator_id}`"
                     target="_blank"
-                    x-text="'@' + (item.data.creator_name || item.data.creator_id)"
-                  ></a>
+                  ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[item.data.creator_id]?.imageUrl" :src="userDetails[item.data.creator_id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[item.data.creator_id]?.displayName || userDetails[item.data.creator_id]?.name || item.data.creator_id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.data.creator_name || item.data.creator_id)"></span></a>
                 </div>
                 <div
                   class="lookup-section"
@@ -1003,8 +1046,7 @@
                         class="user-link"
                         :href="`https://hackclub.slack.com/team/${inst.id}`"
                         target="_blank"
-                        x-text="'@' + (inst.name || inst.id)"
-                      ></a>
+                      ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[inst.id]?.imageUrl" :src="userDetails[inst.id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[inst.id]?.displayName || userDetails[inst.id]?.name || inst.id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (inst.name || inst.id)"></span></a>
                     </template>
                   </div>
                 </div>
@@ -1067,8 +1109,7 @@
                         class="user-link"
                         :href="`https://hackclub.slack.com/team/${inst.id}`"
                         target="_blank"
-                        x-text="'@' + (inst.name || inst.id)"
-                      ></a>
+                      ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[inst.id]?.imageUrl" :src="userDetails[inst.id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[inst.id]?.displayName || userDetails[inst.id]?.name || inst.id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (inst.name || inst.id)"></span></a>
                     </template>
                   </div>
                 </div>
@@ -1081,8 +1122,7 @@
                     class="user-link"
                     :href="`https://hackclub.slack.com/team/${item.data.user?.id}`"
                     target="_blank"
-                    x-text="'@' + (item.data.user?.name || item.data.user?.id)"
-                  ></a>
+                  ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[item.data.user?.id]?.imageUrl" :src="userDetails[item.data.user?.id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[item.data.user?.id]?.displayName || userDetails[item.data.user?.id]?.name || item.data.user?.id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.data.user?.name || item.data.user?.id)"></span></a>
                 </div>
               </div>
             </template>
@@ -1189,6 +1229,8 @@
           suggestionIndex: -1,
           _suggestTimer: null,
           promoteStates: {},
+          showDisplayNames: false,
+          userDetails: {},
 
           init() {
             this.adminKey = localStorage.getItem("flaron_admin_key") || "";
@@ -1210,7 +1252,14 @@
               this.suggestionsLoading = true;
               this.showSuggestions = true;
               this._suggestTimer = setTimeout(
-                () => this.fetchSuggestions(q.slice(1)),
+                () => this.fetchUserSuggestions(q.slice(1)),
+                280,
+              );
+            } else if (q.startsWith("#") && q.length > 1) {
+              this.suggestionsLoading = true;
+              this.showSuggestions = true;
+              this._suggestTimer = setTimeout(
+                () => this.fetchChannelSuggestions(q.slice(1)),
                 280,
               );
             } else {
@@ -1221,7 +1270,7 @@
             }
           },
 
-          async fetchSuggestions(q) {
+          async fetchUserSuggestions(q) {
             if (!q.trim()) return;
             try {
               const res = await fetch(
@@ -1231,6 +1280,7 @@
               const users = (json.data ?? []).slice(0, 8);
               this.userSuggestions = users.map((u) => ({
                 ...u,
+                _kind: "user",
                 imageUrl: null,
               }));
               this.suggestionIndex = -1;
@@ -1256,12 +1306,66 @@
             }
           },
 
-          selectSuggestion(user) {
-            this.query = user.id;
+          async fetchChannelSuggestions(q) {
+            if (!q.trim()) return;
+            try {
+              const res = await fetch(
+                `${API}/channels/search?q=${encodeURIComponent(q)}`,
+              );
+              const json = await res.json();
+              const channels = (json.data ?? []).slice(0, 8);
+              this.userSuggestions = channels.map((c) => ({
+                ...c,
+                _kind: "channel",
+                imageUrl: null,
+              }));
+              this.suggestionIndex = -1;
+              this.suggestionsLoading = false;
+              this.showSuggestions = channels.length > 0;
+            } catch {
+              this.userSuggestions = [];
+              this.showSuggestions = false;
+              this.suggestionsLoading = false;
+            }
+          },
+
+          selectSuggestion(item) {
+            this.query = item.id;
             this.userSuggestions = [];
             this.showSuggestions = false;
             this.suggestionIndex = -1;
             this.$nextTick(() => this.search());
+          },
+
+          enrichUserDetails(ids) {
+            const unique = [...new Set(ids.filter(Boolean))].filter(
+              (id) => !this.userDetails[id],
+            );
+            if (!unique.length) return;
+            unique.forEach(async (id) => {
+              try {
+                const res = await fetch(`${API}/user/${encodeURIComponent(id)}`);
+                const json = await res.json();
+                const u = (json.data ?? json).user ?? {};
+                this.userDetails[id] = {
+                  name: u.name || id,
+                  displayName: u.display_name || u.real_name || u.name || id,
+                  imageUrl: null,
+                };
+                fetch(`https://cachet.dunkirk.sh/users/${id}`)
+                  .then((r) => r.json())
+                  .then((d) => {
+                    if (this.userDetails[id])
+                      this.userDetails[id] = {
+                        ...this.userDetails[id],
+                        imageUrl: d.imageUrl,
+                      };
+                  })
+                  .catch(() => {});
+              } catch {
+                this.userDetails[id] = { name: id, displayName: id, imageUrl: null };
+              }
+            });
           },
 
           async lookupOne(token) {
@@ -1286,6 +1390,10 @@
                   const map = await resolveUsers([data.creator_id]);
                   data.creator_name = map[data.creator_id];
                 }
+                this.enrichUserDetails([
+                  data.creator_id,
+                  ...(data.installers ?? []).map((i) => i.id),
+                ]);
                 return { type: "user", data };
               } else if (/^A[A-Z0-9]{6,}$/i.test(raw)) {
                 const res = await fetch(
@@ -1293,7 +1401,12 @@
                 );
                 const json = await res.json();
                 if (json.error) return null;
-                return { type: "app", data: json.data ?? json };
+                const appData = json.data ?? json;
+                this.enrichUserDetails([
+                  ...(appData.installers ?? []).map((i) => i.id),
+                  appData.user?.id,
+                ]);
+                return { type: "app", data: appData };
               } else {
                 const res = await fetch(
                   `${API}/channel/${encodeURIComponent(raw)}`,
@@ -1303,11 +1416,13 @@
                 const posterIds = Array.isArray(data.who_can_post)
                   ? data.who_can_post
                   : [];
-                const userMap = await resolveUsers([
+                const allUserIds = [
                   ...(data.managers ?? []),
                   data.creator,
                   ...posterIds,
-                ]);
+                ];
+                const userMap = await resolveUsers(allUserIds);
+                this.enrichUserDetails(allUserIds);
                 return { type: "channel", data, userMap };
               }
             } catch {
