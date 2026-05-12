@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-from external import cname_private, trust_factor
+from external import cname_private, idv_verified, trust_factor
 from utils import _env
 from cache import (
     init_cache,
@@ -254,7 +254,8 @@ async def user_info(id: str):
             data["installers"] = install_info_data.get("data", {}).get("installers", [])
             data["creator_id"] = install_info_data.get("data", {}).get("creator", {})
     trust = await trust_factor(id)
-    logger.info(f"trust factor for {id}: {trust}")
+    idv_status = await idv_verified(id)
+    data["idv_status"] = idv_status.get("result")
     data["fraud"] = trust.get("trust_level")
 
     user_cache[id] = data

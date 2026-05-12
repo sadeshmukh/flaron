@@ -25,3 +25,12 @@ async def trust_factor(user_id: str) -> dict:
         async with session.get(url) as res:
             data = await res.json()
             return data  # trust_level: verified, trust_value: 0/1/2 (blue/red/green/ (not yellow))
+
+
+async def idv_verified(user_id: str) -> dict:
+    url = f"https://auth.hackclub.com/api/external/check?slack_id={user_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as res:
+            data = await res.json()
+            # result: needs_submission, pending, verified_eligible, verified_but_over_18, rejected, not_found
+            return data
