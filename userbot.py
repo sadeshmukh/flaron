@@ -564,22 +564,35 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
         return {}
 
 
-_cname_queue: asyncio.Queue | None = None
+_cname_queue: asyncio.Queue | None = None  # (name, bypass_cache, fut)
 
 
 async def _cname_worker():
     queue = _cname_queue
     assert queue is not None
     while True:
-        names, bypass, fut = await queue.get()
+        name, bypass, fut = await queue.get()
+        items: list[tuple[str, bool, asyncio.Future]] = [(name, bypass, fut)]
+        while True:
+            try:
+                name, bypass, fut = queue.get_nowait()
+                items.append((name, bypass, fut))
+            except asyncio.QueueEmpty:
+                break
+
+        names = [item[0] for item in items]
+        bypass_any = any(item[1] for item in items)
         try:
-            result = await _bulk_cname_inner(names, bypass)
-            if not fut.done():
-                fut.set_result({"data": result})
+            result = await _bulk_cname_inner(names, bypass_any)
+            for item_name, _, item_fut in items:
+                if not item_fut.done():
+                    item_fut.set_result(result.get(item_name))
         except Exception as e:
-            if not fut.done():
-                fut.set_exception(e)
-        queue.task_done()
+            for _, _, item_fut in items:
+                if not item_fut.done():
+                    item_fut.set_exception(e)
+        for _ in items:
+            queue.task_done()
 
 
 def _get_cname_queue() -> asyncio.Queue:
@@ -591,9 +604,23 @@ def _get_cname_queue() -> asyncio.Queue:
 
 
 async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dict:
-    fut = asyncio.get_running_loop().create_future()
-    await _get_cname_queue().put((names, bypass_cache, fut))
-    return await fut
+    loop = asyncio.get_running_loop()
+    queue = _get_cname_queue()
+    futs = []
+    for sname in (n.strip("# ") for n in names):
+        if not _is_valid_channel_name(sname):
+            continue
+        fut = loop.create_future()
+        await queue.put((sname, bypass_cache, fut))
+        futs.append((sname, fut))
+    results = await asyncio.gather(*[f for _, f in futs], return_exceptions=True)
+    ret = {}
+    for (sname, _), res in zip(futs, results):
+        if isinstance(res, Exception):
+            raise res
+        if res is not None:
+            ret[sname] = res
+    return {"data": ret}
 
 
 async def _bulk_cname_inner(names: list[str], bypass_cache: bool = False) -> dict:
