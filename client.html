@@ -555,7 +555,7 @@
           @keydown.arrow-up.prevent="suggestionIndex = Math.max(suggestionIndex - 1, -1)"
           @keydown.escape="showSuggestions = false"
           :class="{ 'admin-search': adminSearch, 'priv-filter': !adminSearch && filter === 'private' }"
-          placeholder="@user, #channel, or ID"
+          placeholder="@user, #channel, or any kind of ID"
           autofocus
           spellcheck="false"
           autocomplete="off"
