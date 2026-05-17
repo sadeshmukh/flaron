@@ -59,8 +59,8 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
     args = tokens[1:]
     if not args and cmd not in {"emoji", "app", "q", "search", "ping"}:
         # this is a search now
-        cmd = "q"
         args = [cmd] + args
+        cmd = "q"
     if cmd == "ping":
         await respond("pong")
 
@@ -122,7 +122,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             f"Channels: {app_info_data.get('count_in', 0)} | "
             f"Marketplace: https://hackclub.slack.com/marketplace/{app_id}\n"
             + (
-                f"Description: ```{app_info_data.get('description', 'No description')}```"
+                f"Description: ```{app_info_data.get('description', 'No description')}``` "
                 if app_info_data.get("description")
                 else ""
             )
@@ -165,9 +165,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
 
 # message shortcut
 @app.shortcut("reveal_channels")
-async def reveal_channels(
-    ack: AsyncAck, shortcut: dict, client: AsyncWebClient, respond: AsyncRespond
-):
+async def reveal_channels(ack: AsyncAck, shortcut: dict, client: AsyncWebClient):
     await ack()
     channel_id = shortcut.get("channel", {}).get("id")
     user_id = shortcut.get("user", {}).get("id")
@@ -189,7 +187,14 @@ async def reveal_channels(
             logging.info(
                 f"failed to ephem channel {channel_id} in reveal_channels: {e}"
             )
-            await respond(text)
+            try:
+                await client.chat_postMessage(
+                    channel=channel_id,
+                    text=text,
+                    thread_ts=thread_ts,
+                )
+            except Exception as e2:
+                logging.info(f"failed to post message in reveal_channels: {e2}")
 
     if not content:
         return await ephemeral("Couldn't find any content in the message :(")
