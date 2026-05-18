@@ -195,6 +195,7 @@ async def reveal_channels(ack: AsyncAck, shortcut: dict, client: AsyncWebClient)
                 )
             except Exception as e2:
                 logging.info(f"failed to post message in reveal_channels: {e2}")
+                await respond(text)
 
     if not content:
         return await ephemeral("Couldn't find any content in the message :(")
