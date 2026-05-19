@@ -165,7 +165,9 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
 
 # message shortcut
 @app.shortcut("reveal_channels")
-async def reveal_channels(ack: AsyncAck, shortcut: dict, client: AsyncWebClient):
+async def reveal_channels(
+    ack: AsyncAck, shortcut: dict, client: AsyncWebClient, respond: AsyncRespond
+):
     await ack()
     channel_id = shortcut.get("channel", {}).get("id")
     user_id = shortcut.get("user", {}).get("id")
