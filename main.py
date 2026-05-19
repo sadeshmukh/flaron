@@ -33,6 +33,9 @@ from cache import (
     blacklist_channel,
     unblacklist_channel,
     get_blacklisted_channels,
+    add_stale_channel,
+    get_stale_channel_names,
+    get_stale_channel_ids,
 )
 from userbot import (
     emoji_info,
@@ -68,6 +71,10 @@ async def _re_resolve_startup_cache():
         cached_id = cached_data["id"]
         fresh_id = fresh[name]["id"] if name in fresh else None
         if fresh_id is None:
+            if not cached_data.get("private"):
+                add_stale_channel(name, cached_id)
+                invalidate_channel(cached_id)
+                unmark_channel_failed(cached_id)
             continue
         if fresh_id != cached_id:
             invalidate_channel(cached_id)
@@ -347,6 +354,10 @@ async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
         fresh_id = fresh[name]["id"] if name in fresh else None
         if fresh_id is None:
             unresolved.append({"name": name, "stale_id": cached_id})
+            if not cached_data.get("private"):
+                add_stale_channel(name, cached_id)
+                invalidate_channel(cached_id)
+                unmark_channel_failed(cached_id)
             continue
         if fresh_id != cached_id:
             invalidate_channel(cached_id)
@@ -374,7 +385,16 @@ async def export_cache(x_admin_key: str | None = Header(default=None)):
 async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
-    return {"count": len(startup_stale), "stale": startup_stale}
+    stale_names = get_stale_channel_names()
+    stale_ids = get_stale_channel_ids()
+    return {
+        "renamed": {"count": len(startup_stale), "entries": startup_stale},
+        "unresolvable": {
+            "names": stale_names,
+            "ids": stale_ids,
+            "count": max(len(stale_names), len(stale_ids)),
+        },
+    }
 
 
 @app.post("/admin/blacklist/add")

@@ -24,6 +24,9 @@ PRIVATE_CHANNEL_IDS_KEY = "private_channel_ids"
 _blacklisted_channels: set[str] = set()
 BLACKLISTED_CHANNELS_KEY = "blacklisted_channels"
 
+STALE_CHANNEL_NAMES_KEY = "stale_channel_names"
+STALE_CHANNEL_IDS_KEY = "stale_channel_ids"
+
 
 def init_cache():
     cursor = 0
@@ -217,6 +220,21 @@ async def cache_update_loop(poll_interval: float = 30.0):
                     _apply_stream_event(dict(zip(flat_fields[::2], flat_fields[1::2])))
         except Exception as e:
             logging.warning(f"cache stream poll error: {e}")
+
+
+def add_stale_channel(name: str, id: str):
+    pipe = redis.pipeline()
+    pipe.sadd(STALE_CHANNEL_NAMES_KEY, name)
+    pipe.sadd(STALE_CHANNEL_IDS_KEY, id)
+    pipe.exec()
+
+
+def get_stale_channel_names() -> list[str]:
+    return list(redis.smembers(STALE_CHANNEL_NAMES_KEY) or [])
+
+
+def get_stale_channel_ids() -> list[str]:
+    return list(redis.smembers(STALE_CHANNEL_IDS_KEY) or [])
 
 
 def purge_channel_cache():
