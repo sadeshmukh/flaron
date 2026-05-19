@@ -178,7 +178,11 @@ async def channel(id: str):
 
     elif "error" in managers and managers["error"] == "private":
         # private
-        name = (await cname_private(id)).get("name", "unknown")
+        cname_result = await cname_private(id)
+        if cname_result.get("error"):
+            ret["error"] = "nonexistent"
+            return ret
+        name = cname_result.get("name", "unknown")
         ret["name"] = name
         if name in get_blacklisted_channels():
             return {"error": "nonexistent"}
