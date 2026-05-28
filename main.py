@@ -443,13 +443,18 @@ async def promote(id: str, request: Request):
     return {"data": res.get("data", {})}
 
 
+init_mcgs = False
+
+
 @app.get("/superadmin/mcgs")
 async def _list_mcgs(
     x_admin_key: str | None = Header(default=None), bypass: bool = False
 ):
     if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
         return {"error": "unauthorized"}
-    if bypass:
+    global init_mcgs
+    if bypass or not init_mcgs:
+        init_mcgs = True
         await list_mcgs()
     with open("mcgs.json", "r") as f:
         data = json.load(f)
