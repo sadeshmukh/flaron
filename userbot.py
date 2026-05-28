@@ -751,6 +751,27 @@ async def promote_member(user_id: str) -> dict:
     return {"data": "success"}
 
 
+async def user_channels(
+    user_id: str,
+) -> dict:  # this will be empty if they're not an MCG!
+    data = await req(
+        "users.profile.getExtras",
+        params={
+            "keys": "channels",
+            "user": user_id,
+        },
+    )
+    if err := data.get("error"):
+        logger.error(f"mcg channels error: {err}")
+        return {"error": "unknown"}
+    try:
+        channels = data.get("channels")
+        return {"data": channels}
+    except Exception as err:
+        logger.error(f"mcg channels parsing error: {err}")
+        return {"error": "unknown"}
+
+
 # region local only
 
 
@@ -802,7 +823,13 @@ async def list_mcgs():
 
             try:
                 data = await asyncio.wait_for(
-                    req("users.admin.fetchTeamUsers", form=form), timeout=30
+                    req(
+                        "users.admin.fetchTeamUsers",
+                        form=form,
+                        override_XOXC=_env("XOXC_PROMOTE"),
+                        override_XOXD=_env("XOXD_PROMOTE"),
+                    ),
+                    timeout=30,
                 )
                 retry_count = 0
 
@@ -1178,7 +1205,7 @@ if __name__ == "__main__":
     # asyncio.run(list_mcgs())
     # print(asyncio.run(testty("A0ATTN5H7S9")))
     # print(asyncio.run(posters("C0AR0M43H61")))
-    print(asyncio.run(public_channel_search("sahil")))
+    print(asyncio.run(user_channels("U0B4Q1AH2CD")))
 
 
 # endregion

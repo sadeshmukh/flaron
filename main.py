@@ -44,9 +44,11 @@ from userbot import (
     channel_info,
     channel_managers,
     bulk_cname_to_cid,
+    list_mcgs,
     posters,
     promote_member,
     public_channel_search,
+    user_channels,
     user_info_edge,
     install_info,
     app_info,
@@ -439,6 +441,26 @@ async def promote(id: str, request: Request):
         del user_cache[id]
         print(user_cache.get(id))
     return {"data": res.get("data", {})}
+
+
+@app.get("/superadmin/mcgs")
+async def _list_mcgs(
+    x_admin_key: str | None = Header(default=None), bypass: bool = False
+):
+    if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    if bypass:
+        await list_mcgs()
+    with open("mcgs.json", "r") as f:
+        data = json.load(f)
+    return {"data": data}
+
+
+@app.get("/mcgchannels/{id}")
+async def mcg_channels(id: str, x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    return await user_channels(id)
 
 
 if __name__ == "__main__":
