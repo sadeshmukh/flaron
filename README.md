@@ -10,7 +10,7 @@ Flaron is an API to get all the Slack data you ever wish you had, built on top o
   - this information is also not available through the UI or official API
 - Emoji info: creator, synonyms
 - Search: channels and users
-  - currently used in many of my personal projects for easy & lightweight search
+  - currently used in many of my personal (private) projects related to HC for easy & lightweight search
 - Private channels: retrieve from the DB, quickly look up any name, or look up thousands of names in bulk.
 - ...and more!
 
@@ -18,7 +18,13 @@ Access to Flaron is controlled via a bot and API. In Slack, use the message shor
 
 Note that the UI is highly AI assisted, as it is not the main focus of this project, and is meant to be a simplistic demo client for the APIs available here. That being said, it provides a good example of how to use the APIs, e.g. search-as-you-type user/channel search, and the ability to quickly query the private channel DB both in bulk and individually.
 
-If you ever use Flaron in a personal project, please let me know! I would love to see what you make. If you have any questions or suggestions, DM me @sahil on Slack & talk to me before opening any issues or PRs.
+# How?
+
+Most data from Slack comes from userbotted endpoints. These come in two varieties - flannel requests and normal requests. Flannel is Slack's edge API and contains much of the random info you see that loads everywhere throughout Slack. Normal requests are made more "intentionally", whatever you want to call it, and oftentimes have worse ratelimits. Every single piece of information that you ever see on Slack is available through one of these two methods, which makes Flaron easily extensible.
+
+Private channel data is stored in a Redis instance, which is updated through some userbotted endpoints and is stored in Upstash.
+
+If you have any questions about how this was implemented, or how to obtain any information here, feel free to ask!
 
 # Env vars
 
@@ -44,3 +50,7 @@ EID, TID: enterprise and team ID
 ENTERPRISE_BASE, BASE_SLACK_API: self explanatory
 
 UWTRT: set this to true if you're not using an enterprise, but note that stuff might be slightly different, and it's not been tested without enterprise.
+
+---
+
+If you ever use Flaron in a personal project, please let me know! I would love to see what you make. If you have any questions or suggestions, DM me @sahil on Slack & talk to me before opening any issues or PRs.
