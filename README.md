@@ -1,6 +1,6 @@
 # Flaron
 
-Flaron is an API to get all the Slack data you ever wish you had, built on top of userbotted, official, and scraped webpages. It additionally aggregates additional external APIs. Here's some of the stuff available through Flaron:
+Flaron is an API to get all the Slack data you ever wish you had, built on top of userbotted, official, and scraped webpages. It additionally aggregates additional external APIs. View the full API reference [here](https://flaron.halceon.dev/docs) Here's some of the stuff available through Flaron:
 
 - User info: Slack profile data, IDV status, Joe status
   - TBD: extras
@@ -35,6 +35,7 @@ XOXC, XOXD, XOXC_PROMOTE, XOXD_PROMOTE: scraped tokens for the account you wish 
 DS: needed occasionally for PROMOTE actions
 
 XOXP, XOXB, XAPP: tokens for the bot user, for the bot client
+
 BASE_CMD: starting slash command for the bot (must also be in your manifest)
 
 UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN: I use upstash to store the private channel DB
