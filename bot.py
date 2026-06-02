@@ -22,7 +22,17 @@ from cache import (
     is_channel_blacklisted,
 )
 from external import cname_private
-from userbot import app_info, channel_info, emoji_info, install_info, user_info_edge
+from userbot import (
+    app_info,
+    channel_info,
+    channel_managers,
+    emoji_info,
+    give_manager,
+    install_info,
+    promote_member,
+    revoke_manager,
+    user_info_edge,
+)
 from utils import _env
 
 user_client = AsyncWebClient(token=_env("XOXP"))
@@ -58,7 +68,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
 
     cmd = tokens[0]
     args = tokens[1:]
-    if not args and cmd not in {"emoji", "app", "q", "search", "ping"}:
+    if not args and cmd not in {"emoji", "app", "q", "search", "ping", "manager"}:
         # this is a search now
         args = [cmd] + args
         cmd = "q"
@@ -159,6 +169,78 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
         await respond(
             f"*{len(matches)} match(es) for `{query}`:*\n" + "\n".join(lines) + suffix
         )
+    elif cmd == "promote":
+        if len(args) != 1:
+            return await respond(f"Usage: `{BASE_CMD} promote @user`")
+        # anybody can
+        m = re.search(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", args[0])
+        if not m:
+            return await respond("that's not a user?")
+        logging.info(f"Promote requested by {command.get('user_id')} for {m.group(1)}")
+        res = await promote_member(m.group(1))
+        if res.get("error"):
+            return await respond(error_message(res["error"]))
+        await respond(f"Promoted <@{m.group(1)}> from MCG!")
+    elif cmd == "manager":
+        # get/add/remove
+        if not args:
+            return await respond(
+                f"Usage: `{BASE_CMD} manager get [channel]` or `{BASE_CMD} manager add/remove @user [channel]"
+            )
+        if args[0] == "get":
+            channel_id = command.get("channel_id")
+            args = args[1:]
+            if args:
+                channel_id = args[0]
+                if m := re.search(r"C[A-Z0-9]{6,}", channel_id):
+                    channel_id = m.group(0)
+                else:
+                    return await respond("that's not a channel?")
+            if not channel_id:
+                return await respond("uhhhhhh")
+            try:
+                # managers directly!
+                managers = await channel_managers(channel_id)
+                if not managers:
+                    return await respond("???")
+                await respond(
+                    f"Managers for <#{channel_id}>: "
+                    + ", ".join(f"<@{m}>" for m in managers)
+                )
+            except Exception as e:
+                logging.info(f"failed to get managers for {channel_id}: {e}")
+                await respond(error_message("Failed to fetch channel managers."))
+        elif args[0] in {"add", "remove"}:
+            # dangerous codepath
+            action = args[0]
+            args = args[1:]
+            if not args:
+                return await respond("who do you want to add/remove?")
+            m = re.search(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", args[0])
+            if not m:
+                return await respond("that's not a user?")
+            target_user = m.group(1)
+            channel_id = command.get("channel_id")
+            if len(args) > 1:
+                if cm := re.search(r"C[A-Z0-9]{6,}", args[1]):
+                    channel_id = cm.group(0)
+                else:
+                    return await respond("that's not a channel?")
+            if not channel_id:
+                return await respond("uhhhhhh")
+            if command.get("user_id") not in await channel_managers(channel_id):
+                return await respond("you are not a manager of this channel")
+            try:
+                fn = give_manager if action == "add" else revoke_manager
+                result = await fn(target_user, channel_id)
+                if result.get("error"):
+                    return await respond(error_message(result["error"]))
+                await respond(
+                    f"{'Added' if action == 'add' else 'Removed'} <@{target_user}> as manager of <#{channel_id}>"
+                )
+            except Exception as e:
+                logging.info(f"failed to {action} manager for {channel_id}: {e}")
+                await respond(error_message(f"Failed to {action} manager."))
 
     else:
         await respond("???")

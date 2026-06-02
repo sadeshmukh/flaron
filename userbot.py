@@ -32,6 +32,10 @@ EID = _env("EID", "E09V59WQY1E")
 TID = _env("TID", "T0266FRGM")
 USE_WEIRD_TEAM_ROUTE_THING = _env("UWTRT", "false").lower() == "true"
 
+XOXC_ACTIVE = _env("XOXC_ACTIVE", XOXC)
+XOXD_ACTIVE = _env("XOXD_ACTIVE", XOXD)
+UID_ACTIVE = _env("UID_ACTIVE", "")
+
 # region primitives
 
 
@@ -772,6 +776,33 @@ async def user_channels(
         return {"error": "unknown"}
 
 
+# region active
+
+
+async def give_manager(user: str, channel: str):
+    if not UID_ACTIVE in await channel_managers(channel):
+        return {"error": "agent not a manager"}
+    data = await req(
+        "admin.roles.addMembers",
+        form={"role_id": "Rl0A", "role_scopes": channel, "user_ids": user},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    return data
+
+
+async def revoke_manager(user: str, channel: str):
+    if not UID_ACTIVE in await channel_managers(channel):
+        return {"error": "agent not a manager"}
+    data = await req(
+        "admin.roles.removeMembers",
+        form={"role_id": "Rl0A", "role_scopes": channel, "user_ids": user},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    return data
+
+
 # region local only
 
 
@@ -1205,7 +1236,7 @@ if __name__ == "__main__":
     # asyncio.run(list_mcgs())
     # print(asyncio.run(testty("A0ATTN5H7S9")))
     # print(asyncio.run(posters("C0AR0M43H61")))
-    print(asyncio.run(user_channels("U0B4Q1AH2CD")))
+    print(asyncio.run(give_manager("U08PUHSMW4V", "C0B7CNS4QV9")))
 
 
 # endregion
