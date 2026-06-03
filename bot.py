@@ -200,7 +200,10 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 return await respond("uhhhhhh")
             try:
                 # managers directly!
-                managers = await channel_managers(channel_id)
+                data = await channel_managers(channel_id)
+                if data.get("error"):
+                    return await respond(error_message(data["error"]))
+                managers = data.get("data", [])
                 if not managers:
                     return await respond("???")
                 await respond(
