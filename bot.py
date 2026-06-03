@@ -231,7 +231,9 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                     return await respond("that's not a channel?")
             if not channel_id:
                 return await respond("uhhhhhh")
-            if command.get("user_id") not in await channel_managers(channel_id):
+            if command.get("user_id") not in (await channel_managers(channel_id)).get(
+                "data", []
+            ):
                 return await respond("you are not a manager of this channel")
             try:
                 fn = give_manager if action == "add" else revoke_manager
