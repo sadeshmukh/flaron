@@ -729,7 +729,7 @@ async def public_channel_search(query: str) -> dict:
 
 async def promote_member(user_id: str) -> dict:
     # from mcg
-    DO_NOT_PROMOTE = ["U07CAPBB9B5", "U07NKS9S8GZ"]
+    DO_NOT_PROMOTE = ["U07CAPBB9B5", "U07NKS9S8GZ", "U0B5693FV4Z"]
     if user_id in DO_NOT_PROMOTE:
         logger.warning(
             f"skipping promotion of {user_id} since they're on the do not promote list"
