@@ -589,7 +589,18 @@
                 <div class="suggestion-pfp-placeholder"></div>
               </template>
               <template x-if="u._kind === 'channel'">
-                <div class="suggestion-pfp-placeholder" style="display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:0.85rem">#</div>
+                <div
+                  class="suggestion-pfp-placeholder"
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--dim);
+                    font-size: 0.85rem;
+                  "
+                >
+                  #
+                </div>
               </template>
               <span
                 class="suggestion-name"
@@ -868,7 +879,18 @@
                         class="user-link"
                         :href="`https://hackclub.slack.com/team/${m}`"
                         target="_blank"
-                      ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[m]?.imageUrl" :src="userDetails[m]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[m]?.displayName || userDetails[m]?.name || m"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.userMap?.[m] ?? m)"></span></a>
+                        ><span x-show="showDisplayNames" class="user-link-inner"
+                          ><img
+                            x-show="userDetails[m]?.imageUrl"
+                            :src="userDetails[m]?.imageUrl || ''"
+                            class="user-link-pfp" /><span
+                            x-text="userDetails[m]?.displayName || userDetails[m]?.name || m"
+                          ></span></span
+                        ><span
+                          x-show="!showDisplayNames"
+                          x-text="'@' + (item.userMap?.[m] ?? m)"
+                        ></span
+                      ></a>
                     </template>
                   </div>
                 </div>
@@ -889,7 +911,20 @@
                           class="user-link"
                           :href="`https://hackclub.slack.com/team/${u}`"
                           target="_blank"
-                        ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[u]?.imageUrl" :src="userDetails[u]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[u]?.displayName || userDetails[u]?.name || u"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.userMap?.[u] ?? u)"></span></a>
+                          ><span
+                            x-show="showDisplayNames"
+                            class="user-link-inner"
+                            ><img
+                              x-show="userDetails[u]?.imageUrl"
+                              :src="userDetails[u]?.imageUrl || ''"
+                              class="user-link-pfp" /><span
+                              x-text="userDetails[u]?.displayName || userDetails[u]?.name || u"
+                            ></span></span
+                          ><span
+                            x-show="!showDisplayNames"
+                            x-text="'@' + (item.userMap?.[u] ?? u)"
+                          ></span
+                        ></a>
                       </template>
                     </div>
                   </template>
@@ -900,7 +935,18 @@
                     class="user-link"
                     :href="`https://hackclub.slack.com/team/${item.data.creator}`"
                     target="_blank"
-                  ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[item.data.creator]?.imageUrl" :src="userDetails[item.data.creator]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[item.data.creator]?.displayName || userDetails[item.data.creator]?.name || item.data.creator"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.userMap?.[item.data.creator] ?? item.data.creator)"></span></a>
+                    ><span x-show="showDisplayNames" class="user-link-inner"
+                      ><img
+                        x-show="userDetails[item.data.creator]?.imageUrl"
+                        :src="userDetails[item.data.creator]?.imageUrl || ''"
+                        class="user-link-pfp" /><span
+                        x-text="userDetails[item.data.creator]?.displayName || userDetails[item.data.creator]?.name || item.data.creator"
+                      ></span></span
+                    ><span
+                      x-show="!showDisplayNames"
+                      x-text="'@' + (item.userMap?.[item.data.creator] ?? item.data.creator)"
+                    ></span
+                  ></a>
                 </div>
                 <div
                   class="lookup-section"
@@ -1030,7 +1076,18 @@
                     class="user-link"
                     :href="`https://hackclub.slack.com/team/${item.data.creator_id}`"
                     target="_blank"
-                  ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[item.data.creator_id]?.imageUrl" :src="userDetails[item.data.creator_id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[item.data.creator_id]?.displayName || userDetails[item.data.creator_id]?.name || item.data.creator_id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.data.creator_name || item.data.creator_id)"></span></a>
+                    ><span x-show="showDisplayNames" class="user-link-inner"
+                      ><img
+                        x-show="userDetails[item.data.creator_id]?.imageUrl"
+                        :src="userDetails[item.data.creator_id]?.imageUrl || ''"
+                        class="user-link-pfp" /><span
+                        x-text="userDetails[item.data.creator_id]?.displayName || userDetails[item.data.creator_id]?.name || item.data.creator_id"
+                      ></span></span
+                    ><span
+                      x-show="!showDisplayNames"
+                      x-text="'@' + (item.data.creator_name || item.data.creator_id)"
+                    ></span
+                  ></a>
                 </div>
                 <div
                   class="lookup-section"
@@ -1046,7 +1103,18 @@
                         class="user-link"
                         :href="`https://hackclub.slack.com/team/${inst.id}`"
                         target="_blank"
-                      ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[inst.id]?.imageUrl" :src="userDetails[inst.id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[inst.id]?.displayName || userDetails[inst.id]?.name || inst.id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (inst.name || inst.id)"></span></a>
+                        ><span x-show="showDisplayNames" class="user-link-inner"
+                          ><img
+                            x-show="userDetails[inst.id]?.imageUrl"
+                            :src="userDetails[inst.id]?.imageUrl || ''"
+                            class="user-link-pfp" /><span
+                            x-text="userDetails[inst.id]?.displayName || userDetails[inst.id]?.name || inst.id"
+                          ></span></span
+                        ><span
+                          x-show="!showDisplayNames"
+                          x-text="'@' + (inst.name || inst.id)"
+                        ></span
+                      ></a>
                     </template>
                   </div>
                 </div>
@@ -1109,7 +1177,18 @@
                         class="user-link"
                         :href="`https://hackclub.slack.com/team/${inst.id}`"
                         target="_blank"
-                      ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[inst.id]?.imageUrl" :src="userDetails[inst.id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[inst.id]?.displayName || userDetails[inst.id]?.name || inst.id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (inst.name || inst.id)"></span></a>
+                        ><span x-show="showDisplayNames" class="user-link-inner"
+                          ><img
+                            x-show="userDetails[inst.id]?.imageUrl"
+                            :src="userDetails[inst.id]?.imageUrl || ''"
+                            class="user-link-pfp" /><span
+                            x-text="userDetails[inst.id]?.displayName || userDetails[inst.id]?.name || inst.id"
+                          ></span></span
+                        ><span
+                          x-show="!showDisplayNames"
+                          x-text="'@' + (inst.name || inst.id)"
+                        ></span
+                      ></a>
                     </template>
                   </div>
                 </div>
@@ -1122,7 +1201,18 @@
                     class="user-link"
                     :href="`https://hackclub.slack.com/team/${item.data.user?.id}`"
                     target="_blank"
-                  ><span x-show="showDisplayNames" class="user-link-inner"><img x-show="userDetails[item.data.user?.id]?.imageUrl" :src="userDetails[item.data.user?.id]?.imageUrl || ''" class="user-link-pfp"><span x-text="userDetails[item.data.user?.id]?.displayName || userDetails[item.data.user?.id]?.name || item.data.user?.id"></span></span><span x-show="!showDisplayNames" x-text="'@' + (item.data.user?.name || item.data.user?.id)"></span></a>
+                    ><span x-show="showDisplayNames" class="user-link-inner"
+                      ><img
+                        x-show="userDetails[item.data.user?.id]?.imageUrl"
+                        :src="userDetails[item.data.user?.id]?.imageUrl || ''"
+                        class="user-link-pfp" /><span
+                        x-text="userDetails[item.data.user?.id]?.displayName || userDetails[item.data.user?.id]?.name || item.data.user?.id"
+                      ></span></span
+                    ><span
+                      x-show="!showDisplayNames"
+                      x-text="'@' + (item.data.user?.name || item.data.user?.id)"
+                    ></span
+                  ></a>
                 </div>
               </div>
             </template>
@@ -1229,7 +1319,7 @@
           suggestionIndex: -1,
           _suggestTimer: null,
           promoteStates: {},
-          showDisplayNames: false,
+          showDisplayNames: true,
           userDetails: {},
 
           init() {
@@ -1344,7 +1434,9 @@
             if (!unique.length) return;
             unique.forEach(async (id) => {
               try {
-                const res = await fetch(`${API}/user/${encodeURIComponent(id)}`);
+                const res = await fetch(
+                  `${API}/user/${encodeURIComponent(id)}`,
+                );
                 const json = await res.json();
                 const u = (json.data ?? json).user ?? {};
                 this.userDetails[id] = {
@@ -1363,7 +1455,11 @@
                   })
                   .catch(() => {});
               } catch {
-                this.userDetails[id] = { name: id, displayName: id, imageUrl: null };
+                this.userDetails[id] = {
+                  name: id,
+                  displayName: id,
+                  imageUrl: null,
+                };
               }
             });
           },
