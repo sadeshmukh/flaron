@@ -22,9 +22,10 @@ from external import cname_private, idv_verified, trust_factor
 from utils import _env
 from cache import (
     init_cache,
-    get_all_cached_name_to_id,
+    get_all_records,
+    get_stale_records,
     search_cached_channels,
-    invalidate_channel,
+    unlink_channel,
     mark_channel_failed,
     unmark_channel_failed,
     is_channel_failed,
@@ -33,9 +34,6 @@ from cache import (
     blacklist_channel,
     unblacklist_channel,
     get_blacklisted_channels,
-    add_stale_channel,
-    get_stale_channel_names,
-    get_stale_channel_ids,
 )
 from userbot import (
     emoji_info,
@@ -63,30 +61,42 @@ commands: dict = {}
 startup_stale: list = []
 
 
+async def _revalidate_channel_records() -> dict:
+    records = get_all_records()
+    active = {cid: rec for cid, rec in records.items() if rec["latest"]}
+    if not active:
+        return {"renamed": [], "unresolved": []}
+    name_to_cid = {rec["latest"]: cid for cid, rec in active.items()}
+    fresh = await _resolve_channel_names(list(name_to_cid.keys()))
+    renamed = []
+    unresolved = []
+    confirmed = {}
+    for name, cid in name_to_cid.items():
+        fresh_data = fresh.get(name)
+        if fresh_data is None:
+            unresolved.append({"name": name, "stale_id": cid})
+            if not active[cid]["private"]:
+                unlink_channel(cid)
+                unmark_channel_failed(cid)
+            continue
+        if fresh_data["id"] != cid:
+            unlink_channel(cid)
+            unmark_channel_failed(cid)
+            renamed.append(
+                {"name": name, "stale_id": cid, "fresh_id": fresh_data["id"]}
+            )
+        confirmed[fresh_data["id"]] = {
+            "name": name,
+            "private": fresh_data["private"],
+        }
+    cache_channels(confirmed)
+    return {"renamed": renamed, "unresolved": unresolved}
+
+
 async def _re_resolve_startup_cache():
     global startup_stale
-    snapshot = get_all_cached_name_to_id()
-    if not snapshot:
-        return
-    fresh = await _resolve_channel_names(list(snapshot.keys()))
-    for name, cached_data in snapshot.items():
-        cached_id = cached_data["id"]
-        fresh_id = fresh[name]["id"] if name in fresh else None
-        if fresh_id is None:
-            if not cached_data.get("private"):
-                add_stale_channel(name, cached_id)
-                invalidate_channel(cached_id)
-                unmark_channel_failed(cached_id)
-            continue
-        if fresh_id != cached_id:
-            invalidate_channel(cached_id)
-            unmark_channel_failed(cached_id)
-            startup_stale.append(
-                {"name": name, "stale_id": cached_id, "fresh_id": fresh_id}
-            )
-    cache_channels(
-        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
-    )
+    result = await _revalidate_channel_records()
+    startup_stale = result["renamed"]
     if startup_stale:
         logger.info(f"{len(startup_stale)} stale channel mappings found on startup")
 
@@ -191,9 +201,13 @@ async def channel(id: str):
         return ret
 
     # public below
+    info = await channel_info(id)
+    if not info.get("error", {}):
+        if info.get("data", {}).get("name") in get_blacklisted_channels():
+            return {"error": "nonexistent"}
     ret["counts"] = (await channel_counts(id)).get("data", {})
     ret["managers"] = managers.get("data", [])
-    if not (info := await channel_info(id)).get("error", {}):
+    if not info.get("error", {}):
         ret.update(info.get("data", {}))
 
     whocanpost = await posters(id)
@@ -349,37 +363,15 @@ async def search_cache(q: str, x_admin_key: str | None = Header(default=None)):
 async def revalidate_channels(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
-    snapshot = get_all_cached_name_to_id()
-    if not snapshot:
-        return {"removed": []}
-    fresh = await _resolve_channel_names(list(snapshot.keys()))
-    removed = []
-    unresolved = []
-    for name, cached_data in snapshot.items():
-        cached_id = cached_data["id"]
-        fresh_id = fresh[name]["id"] if name in fresh else None
-        if fresh_id is None:
-            unresolved.append({"name": name, "stale_id": cached_id})
-            if not cached_data.get("private"):
-                add_stale_channel(name, cached_id)
-                invalidate_channel(cached_id)
-                unmark_channel_failed(cached_id)
-            continue
-        if fresh_id != cached_id:
-            invalidate_channel(cached_id)
-            unmark_channel_failed(cached_id)
-            removed.append({"name": name, "stale_id": cached_id, "fresh_id": fresh_id})
-    cache_channels(
-        {v["id"]: {"name": k, "private": v["private"]} for k, v in fresh.items()}
-    )
-    return {"removed": removed, "unresolved": unresolved}
+    result = await _revalidate_channel_records()
+    return {"removed": result["renamed"], "unresolved": result["unresolved"]}
 
 
 @app.get("/admin/export")
 async def export_cache(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
-    data = get_all_cached_name_to_id()
+    data = get_all_records()
     return Response(
         content=json.dumps(data, separators=(",", ":")),
         media_type="application/json",
@@ -391,15 +383,10 @@ async def export_cache(x_admin_key: str | None = Header(default=None)):
 async def get_startup_stale(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
-    stale_names = get_stale_channel_names()
-    stale_ids = get_stale_channel_ids()
+    stale = get_stale_records()
     return {
         "renamed": {"count": len(startup_stale), "entries": startup_stale},
-        "unresolvable": {
-            "names": stale_names,
-            "ids": stale_ids,
-            "count": max(len(stale_names), len(stale_ids)),
-        },
+        "unresolvable": {"count": len(stale), "entries": stale},
     }
 
 
