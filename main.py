@@ -61,6 +61,12 @@ commands: dict = {}
 startup_stale: list = []
 
 
+def _is_admin(x_admin_key: str | None) -> bool:
+    return bool(x_admin_key) and (
+        x_admin_key in [_env("ADMIN_KEY", ""), _env("SUPERADMIN_KEY", "")]
+    )
+
+
 async def _revalidate_channel_records() -> dict:
     records = get_all_records()
     active = {cid: rec for cid, rec in records.items() if rec["latest"]}
@@ -173,7 +179,7 @@ async def channel_member_count(id: str):
     return await channel_counts(id)
 
 
-async def channel(id: str):
+async def channel(id: str, admin: bool = False):
     ret = {"id": id}
 
     if is_channel_failed(id):
@@ -197,14 +203,18 @@ async def channel(id: str):
         name = cname_result.get("name", "unknown")
         ret["name"] = name
         if name in get_blacklisted_channels():
-            return {"error": "nonexistent"}
+            if not admin:
+                return {"error": "nonexistent"}
+            ret["blacklist"] = True
         return ret
 
     # public below
     info = await channel_info(id)
     if not info.get("error", {}):
         if info.get("data", {}).get("name") in get_blacklisted_channels():
-            return {"error": "nonexistent"}
+            if not admin:
+                return {"error": "nonexistent"}
+            ret["blacklist"] = True
     ret["counts"] = (await channel_counts(id)).get("data", {})
     ret["managers"] = managers.get("data", [])
     if not info.get("error", {}):
@@ -217,19 +227,20 @@ async def channel(id: str):
 
 
 @app.get("/cid/{id}")
-async def channel_by_id(id: str):
-    return await channel(id)
+async def channel_by_id(id: str, x_admin_key: str | None = Header(default=None)):
+    return await channel(id, admin=_is_admin(x_admin_key))
 
 
 @app.get("/cname/{name}")
-async def channel_by_name(name: str):
-    if name in get_blacklisted_channels():
+async def channel_by_name(name: str, x_admin_key: str | None = Header(default=None)):
+    admin = _is_admin(x_admin_key)
+    if name in get_blacklisted_channels() and not admin:
         return {"error": "nonexistent"}
     result = await bulk_cname_to_cid([name])
     if result.get("error"):
         return result
     if entry := result.get("data", {}).get(name):
-        return await channel(entry["id"])
+        return await channel(entry["id"], admin=admin)
     return {"error": "nonexistent"}
 
 
@@ -240,7 +251,7 @@ async def channels_by_name(
     bypass: bool = False,
 ):
     """get channels in bulk! admin key + bypass=true required to bypass cache"""
-    admin_available = x_admin_key is not None and x_admin_key == _env("ADMIN_KEY", "")
+    admin_available = _is_admin(x_admin_key)
     bypass = bypass and admin_available
     if bypass:
         logger.info(f"BYPASS {names}")
@@ -251,14 +262,19 @@ async def channels_by_name(
         return result
     data = result.get("data", {})
     blacklisted = get_blacklisted_channels()
+    if admin_available:
+        for k, v in data.items():
+            if k in blacklisted and isinstance(v, dict) and not v.get("error"):
+                v["blacklist"] = True
+        return {"data": data}
     return {"data": {k: v for k, v in data.items() if k not in blacklisted}}
 
 
 @app.get("/channel/{id}", tags=["main"])
-async def channel_info_public(id: str):
+async def channel_info_public(id: str, x_admin_key: str | None = Header(default=None)):
     if not re.fullmatch(r"C[A-Z0-9]{6,}", id):
-        return await channel_by_name(id)
-    return await channel(id)
+        return await channel_by_name(id, x_admin_key=x_admin_key)
+    return await channel(id, admin=_is_admin(x_admin_key))
 
 
 user_cache = TTLCache(maxsize=2000, ttl=3600)

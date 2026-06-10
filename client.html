@@ -445,6 +445,14 @@
         font-size: 0.75rem;
       }
 
+      .badge-blacklist {
+        color: var(--amber);
+        font-size: 0.75rem;
+        border: 1px solid var(--amber);
+        border-radius: 3px;
+        padding: 0 0.3rem;
+      }
+
       .lookup-desc {
         color: var(--dim);
         margin-top: 0.5rem;
@@ -801,6 +809,9 @@
                   :class="{ priv: r.private }"
                   x-text="r.id"
                 ></span>
+                <span class="badge-blacklist" x-show="r.blacklist"
+                  >blacklisted</span
+                >
               </div>
             </template>
           </div>
@@ -872,6 +883,9 @@
                   ></a>
                   <span class="badge-archived" x-show="item.data.is_archived">
                     archived</span
+                  >
+                  <span class="badge-blacklist" x-show="item.data.blacklist">
+                    blacklisted</span
                   >
                 </div>
                 <div class="lookup-meta">
@@ -1001,7 +1015,11 @@
                     >
                       <div class="cache-row" :class="{ current: h.current }">
                         <span x-text="'#' + h.name"></span>
-                        <span class="cache-ts" x-show="h.date" x-text="h.date"></span>
+                        <span
+                          class="cache-ts"
+                          x-show="h.date"
+                          x-text="h.date"
+                        ></span>
                         <span class="cache-ts" x-show="h.current">current</span>
                       </div>
                     </template>
@@ -1555,6 +1573,9 @@
               } else {
                 const res = await fetch(
                   `${API}/channel/${encodeURIComponent(raw)}`,
+                  this.adminKey
+                    ? { headers: { "X-Admin-Key": this.adminKey } }
+                    : undefined,
                 );
                 const data = await res.json();
                 if (data.error) return null;
@@ -1717,7 +1738,7 @@
                 // permutations
                 const names = allCombos(parseGroups(q));
                 const cnames_headers = { "Content-Type": "application/json" };
-                if (this.bypassCache && this.adminKey)
+                if (this.adminKey)
                   cnames_headers["X-Admin-Key"] = this.adminKey;
                 const res = await fetch(`${API}/cnames`, {
                   method: "POST",
@@ -1735,6 +1756,7 @@
                       name,
                       id: v.id,
                       private: v.private ?? false,
+                      blacklist: v.blacklist ?? false,
                     }))
                     .sort((a, b) => a.name.localeCompare(b.name));
                 }
