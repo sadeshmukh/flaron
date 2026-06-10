@@ -464,6 +464,33 @@
         opacity: 0.6;
       }
 
+      .cache-hist {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .cache-row {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        color: var(--dim);
+      }
+      .cache-row.current {
+        color: var(--accent);
+      }
+      .cache-row.current .cache-ts {
+        color: var(--accent);
+      }
+      .cache-ts {
+        font-size: 0.75rem;
+        color: var(--dim);
+      }
+      .cache-stale {
+        color: var(--amber);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+      }
+
       /* ── Active mode badges ── */
       .mode-badges {
         display: flex;
@@ -962,6 +989,27 @@
                     </template>
                   </div>
                 </div>
+                <div
+                  class="lookup-section"
+                  x-show="item.record?.history?.length"
+                >
+                  <div class="lookup-label">cache history</div>
+                  <div class="cache-hist">
+                    <template
+                      x-for="(h, hi) in cacheHistory(item.record)"
+                      :key="hi"
+                    >
+                      <div class="cache-row" :class="{ current: h.current }">
+                        <span x-text="'#' + h.name"></span>
+                        <span class="cache-ts" x-show="h.date" x-text="h.date"></span>
+                        <span class="cache-ts" x-show="h.current">current</span>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="cache-stale" x-show="item.record.latest === null">
+                    unlinked — no current name resolves to this id
+                  </div>
+                </div>
               </div>
             </template>
 
@@ -1313,6 +1361,7 @@
           adminSearch: false,
           bypassCache: false,
           adminMsg: "",
+          cacheRecords: null,
           userSuggestions: [],
           showSuggestions: false,
           suggestionsLoading: false,
@@ -1519,11 +1568,47 @@
                 ];
                 const userMap = await resolveUsers(allUserIds);
                 this.enrichUserDetails(allUserIds);
-                return { type: "channel", data, userMap };
+                let record = null;
+                if (this.adminKey) {
+                  await this.loadCacheRecords();
+                  record = this.cacheRecords?.[data.id] ?? null;
+                }
+                return { type: "channel", data, userMap, record };
               }
             } catch {
               return null;
             }
+          },
+
+          // /admin/export now returns id-keyed records:
+          //   { [id]: { history: [{name, ts}], latest: string|null, private } }
+          // load it once so channel lookups can show cached name history.
+          async loadCacheRecords(force = false) {
+            if (this.cacheRecords && !force) return this.cacheRecords;
+            if (!this.adminKey) return null;
+            try {
+              const res = await fetch(`${API}/admin/export`, {
+                headers: { "X-Admin-Key": this.adminKey },
+              });
+              const data = await res.json();
+              if (data && !data.error) this.cacheRecords = data;
+            } catch {
+              /* leave whatever we had */
+            }
+            return this.cacheRecords;
+          },
+
+          // newest-first view of a record's name history for rendering
+          cacheHistory(rec) {
+            if (!rec || !Array.isArray(rec.history)) return [];
+            return rec.history
+              .slice()
+              .reverse()
+              .map((h) => ({
+                name: h.name,
+                date: h.ts ? new Date(h.ts * 1000).toLocaleDateString() : "",
+                current: rec.latest !== null && h.name === rec.latest,
+              }));
           },
 
           async exportCache() {
@@ -1553,7 +1638,10 @@
               });
               const data = await res.json();
               if (data.error) this.adminMsg = data.error;
-              else this.adminMsg = `done - ${data.removed?.length ?? 0} stale`;
+              else {
+                this.cacheRecords = null; // records changed; refetch on next lookup
+                this.adminMsg = `done - ${data.removed?.length ?? 0} stale`;
+              }
             } catch {
               this.adminMsg = "request failed";
             }
