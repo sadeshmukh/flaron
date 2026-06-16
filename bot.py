@@ -232,7 +232,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                     return await respond("that's not a channel?")
             if not channel_id:
                 return await respond("uhhhhhh")
-            if command.get("user_id") not in (await channel_managers(channel_id)).get(
+            if command.get("user_id") not in (await managers_active(channel_id)).get(
                 "data", []
             ):
                 return await respond("you are not a manager of this channel")
