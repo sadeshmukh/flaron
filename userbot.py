@@ -803,6 +803,29 @@ async def revoke_manager(user: str, channel: str):
     return data
 
 
+async def managers_active(channel_id: str) -> dict:
+    data = await req(
+        "admin.roles.entity.listAssignments",
+        form={"entity_id": channel_id},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error", ""):
+        pretty = (
+            "private"
+            if err == "no_perms"
+            else "nonexistent" if err == "invalid_entity_id" else "unknown"
+        )
+        if pretty == "unknown":
+            logger.error(f"what in the world is this error in {channel_id}: {err}")
+        return {"error": pretty}
+    try:
+        return {"data": data.get("role_assignments", [])[0].get("users", [])}
+    except Exception:
+        logger.debug(f"Failed to get managers for {channel_id}")
+        return {"data": []}
+
+
 # region local only
 
 

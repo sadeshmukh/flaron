@@ -29,6 +29,7 @@ from userbot import (
     emoji_info,
     give_manager,
     install_info,
+    managers_active,
     promote_member,
     revoke_manager,
     user_info_edge,
@@ -200,7 +201,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 return await respond("uhhhhhh")
             try:
                 # managers directly!
-                data = await channel_managers(channel_id)
+                data = await managers_active(channel_id)
                 if data.get("error"):
                     return await respond(error_message(data["error"]))
                 managers = data.get("data", [])
