@@ -497,7 +497,10 @@ def _is_valid_channel_name(name: str) -> bool:
 async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
     if not names:
         return {}
-    names = [n for n in names if _is_valid_channel_name(n)]
+    # canonicalize to lowercase: channel names are case-insensitive, so this is
+    # the single point that guarantees the blocks.format payload and the
+    # resulting cache/DB keys are always lowercase (#Lounge == #lounge)
+    names = [n.lower() for n in names if _is_valid_channel_name(n)]
     if not names:
         return {}
     text_payload = " ".join(f"#{n}" for n in names)
@@ -611,7 +614,10 @@ async def bulk_cname_to_cid(names: list[str], bypass_cache: bool = False) -> dic
     loop = asyncio.get_running_loop()
     queue = _get_cname_queue()
     futs = []
-    for sname in (n.strip("# ") for n in names):
+    # channel names are case-insensitive; canonicalize to lowercase so cache
+    # lookups, the blocks.format payload, and the DB are all keyed identically
+    # (#Lounge and #lounge must not produce separate entries)
+    for sname in (n.strip("# ").lower() for n in names):
         if not _is_valid_channel_name(sname):
             continue
         fut = loop.create_future()

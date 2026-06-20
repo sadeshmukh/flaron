@@ -234,6 +234,7 @@ async def channel_by_id(id: str, x_admin_key: str | None = Header(default=None))
 @app.get("/cname/{name}")
 async def channel_by_name(name: str, x_admin_key: str | None = Header(default=None)):
     admin = _is_admin(x_admin_key)
+    name = name.strip("# ").lower()
     if name in get_blacklisted_channels() and not admin:
         return {"error": "nonexistent"}
     result = await bulk_cname_to_cid([name])
