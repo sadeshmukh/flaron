@@ -281,6 +281,40 @@ async def user_info(user_id: str) -> dict:
     return data
 
 
+async def get_profile_sections(user_id: str) -> dict:
+    data = await req("users.profile.getSections", form={"user": user_id})
+    if err := data.get("error"):
+        logger.error(f"profile sections error: {err}")
+        return {"error": "unknown"}
+    try:
+        # the response is buried: result.data.user.profileSections[].profileElements[]
+        # each element has a `label` (field title) and a value under a type-specific
+        # key (text/date/uri/persons), so flatten the whole thing to {label: content}
+        user = data.get("result", {}).get("data", {}).get("user", {})
+        ret = {}
+        for section in user.get("profileSections", []):
+            for el in section.get("profileElements", []):
+                label = el.get("label")
+                if not label:
+                    continue
+                if (text := el.get("text")) is not None:
+                    content = text
+                elif (date := el.get("date")) is not None:
+                    content = date
+                elif (uri := el.get("uri")) is not None:
+                    # link fields carry both a display label and the url; keep both
+                    content = {"text": el.get("displayText") or uri, "link": uri}
+                elif (persons := el.get("persons")) is not None:
+                    content = persons
+                else:
+                    continue
+                ret[label] = content
+        return {"data": ret}
+    except Exception as err:
+        logger.error(f"profile sections parsing error: {err}")
+        return {"error": "unknown"}
+
+
 async def userboot():
     data = await req("client.userBoot")
     if err := data.get("error"):

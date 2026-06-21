@@ -48,6 +48,7 @@ from userbot import (
     public_channel_search,
     user_channels,
     user_info_edge,
+    get_profile_sections,
     install_info,
     app_info,
     _resolve_channel_names,
@@ -430,6 +431,15 @@ async def list_blacklist(x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
         return {"error": "unauthorized"}
     return {"blacklisted_channels": list(get_blacklisted_channels())}
+
+
+@app.get("/admin/userDetailed")
+async def user_detailed(id: str, x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("ADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    if not re.fullmatch(r"U[A-Z0-9]{6,}", id):
+        return {"error": "invalid user ID"}
+    return await get_profile_sections(id)
 
 
 @app.get("/promote/{id}")
