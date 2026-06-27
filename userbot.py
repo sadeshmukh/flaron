@@ -819,30 +819,6 @@ async def user_channels(
 # region active
 
 
-async def give_manager(user: str, channel: str):
-    if not UID_ACTIVE in await channel_managers(channel):
-        return {"error": "agent not a manager"}
-    data = await req(
-        "admin.roles.addMembers",
-        form={"role_id": "Rl0A", "role_scopes": channel, "user_ids": user},
-        override_XOXC=_env("XOXC_ACTIVE", XOXC),
-        override_XOXD=_env("XOXD_ACTIVE", XOXD),
-    )
-    return data
-
-
-async def revoke_manager(user: str, channel: str):
-    if not UID_ACTIVE in await channel_managers(channel):
-        return {"error": "agent not a manager"}
-    data = await req(
-        "admin.roles.removeMembers",
-        form={"role_id": "Rl0A", "role_scopes": channel, "user_ids": user},
-        override_XOXC=_env("XOXC_ACTIVE", XOXC),
-        override_XOXD=_env("XOXD_ACTIVE", XOXD),
-    )
-    return data
-
-
 async def managers_active(channel_id: str) -> dict:
     data = await req(
         "admin.roles.entity.listAssignments",
@@ -864,6 +840,30 @@ async def managers_active(channel_id: str) -> dict:
     except Exception:
         logger.debug(f"Failed to get managers for {channel_id}")
         return {"data": []}
+
+
+async def give_manager(user: str, channel: str):
+    if not UID_ACTIVE in (await managers_active(channel)).get("data", []):
+        return {"error": "agent not a manager"}
+    data = await req(
+        "admin.roles.addMembers",
+        form={"role_id": "Rl0A", "role_scopes": channel, "user_ids": user},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    return data
+
+
+async def revoke_manager(user: str, channel: str):
+    if not UID_ACTIVE in (await managers_active(channel)).get("data", []):
+        return {"error": "agent not a manager"}
+    data = await req(
+        "admin.roles.removeMembers",
+        form={"role_id": "Rl0A", "role_scopes": channel, "user_ids": user},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    return data
 
 
 # region local only
