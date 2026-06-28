@@ -692,21 +692,21 @@ async def _bulk_cname_inner(names: list[str], bypass_cache: bool = False) -> dic
     return ret
 
 
-async def posters(cid: str) -> dict:
-    data = await req("conversations.listPrefs", form={"channel": cid})
-    if err := data.get("error"):
-        logger.error(f"posters error: {err}")
-        return {"error": "unknown"}
-    try:
-        whocanpost = data.get("prefs", {}).get("who_can_post", [])
-        if whocanpost.get("type")[0] == "ra":
-            return {"data": "all"}
-        elif whocanpost.get("type")[0] == "admin":
-            return {"data": whocanpost.get("user", [])}
-        return {"data": []}
-    except Exception as err:
-        logger.error(f"posters parsing error: {err}")
-        return {"error": "unknown"}
+# async def posters(cid: str) -> dict:
+#     data = await req("conversations.listPrefs", form={"channel": cid})
+#     if err := data.get("error"):
+#         logger.error(f"posters error: {err}")
+#         return {"error": "unknown"}
+#     try:
+#         whocanpost = data.get("prefs", {}).get("who_can_post", [])
+#         if whocanpost.get("type")[0] == "ra":
+#             return {"data": "all"}
+#         elif whocanpost.get("type")[0] == "admin":
+#             return {"data": whocanpost.get("user", [])}
+#         return {"data": []}
+#     except Exception as err:
+#         logger.error(f"posters parsing error: {err}")
+#         return {"error": "unknown"}
 
 
 async def users_search(query: str) -> dict:
@@ -864,6 +864,154 @@ async def revoke_manager(user: str, channel: str):
         override_XOXD=_env("XOXD_ACTIVE", XOXD),
     )
     return data
+
+
+async def posters(channel_id: str) -> dict:
+    data = await req(
+        "channels.prefs.get",
+        form={"channel_id": channel_id, "pref_name": "who_can_post"},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"posters error: {err}")
+        return {"error": "unknown"}
+    try:
+        whocanpost = data.get("pref_value")
+        # empty -> all, "type": "admin" then check users list
+        if not whocanpost or whocanpost.get("type")[0] == "ra":
+            return {"data": "all"}
+        elif whocanpost.get("type")[0] == "admin":
+            return {"data": whocanpost.get("user", [])}
+        logger.error(f"weird response: {data}")
+        return {"error": "unknown"}
+    except Exception as err:
+        logger.error(f"posters parsing error: {err}")
+        return {"error": "unknown"}
+
+
+async def other_posting_perms(channel_id: str) -> dict:
+    # this is so cooked
+    data = await req(
+        "channels.prefs.get",
+        form={"channel_id": channel_id, "pref_name": "can_thread"},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"can_thread error: {err}")
+        return {"error": "unknown"}
+    can_thread = data.get("pref_value", {})
+
+    data = await req(
+        "channels.prefs.get",
+        form={"channel_id": channel_id, "pref_name": "enable_at_here"},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"enable_at_here error: {err}")
+        return {"error": "unknown"}
+    enable_at_here = data.get("pref_value", {}).get("enabled", False)
+
+    data = await req(
+        "channels.prefs.get",
+        form={"channel_id": channel_id, "pref_name": "enable_at_channel"},
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"enable_at_channel error: {err}")
+        return {"error": "unknown"}
+
+    enable_at_channel = data.get("pref_value", {}).get("enabled", False)
+
+    res = {}
+    t = can_thread.get("type", "")
+    if can_thread.get("type", "") and type(t) == list and t[0] == "ra":
+        res["can_thread"] = "type:ra"
+    if enable_at_here:
+        res["enable_at_here"] = "true"
+    if enable_at_channel:
+        res["enable_at_channel"] = "true"
+    return {"data": res}
+
+
+async def add_posters(channel_id: str, users: list[str] | None):
+    users = users or []
+    current = await posters(channel_id)
+    if current.get("error"):
+        logger.error(f"set posters failed to get current: {current.get('error')}")
+        return {"error": "unknown"}
+    users = users + current.get("data", []) if current.get("data") != "all" else []
+    users = list(dict.fromkeys(users))
+    other_prefs = await other_posting_perms(channel_id)
+    if other_prefs.get("error"):
+        logger.error(
+            f"set posters failed to get other prefs: {other_prefs.get('error')}"
+        )
+        return {"error": "unknown"}
+
+    extra = other_prefs.get("data") or {}
+    whocanpost = (
+        "type:admin" + "".join(",user:" + u for u in users) if users else "type:ra"
+    )
+    prefs = {"who_can_post": whocanpost, **extra}
+
+    form = {
+        "channel_id": channel_id,
+        "prefs": json.dumps(prefs),
+    }
+    data = await req(
+        "channels.prefs.set",
+        form=form,
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"set posters error: {err}")
+        return {"error": "unknown"}
+    return {"data": "success"}
+
+
+async def remove_posters(channel_id: str, users: list[str] | None):
+    users = users or []
+    current = await posters(channel_id)
+    if current.get("error"):
+        logger.error(f"remove posters failed to get current: {current.get('error')}")
+        return {"error": "unknown"}
+    users = (
+        [u for u in current.get("data", []) if u not in users]
+        if current.get("data") != "all"
+        else []
+    )
+    other_prefs = await other_posting_perms(channel_id)
+    if other_prefs.get("error"):
+        logger.error(
+            f"remove posters failed to get other prefs: {other_prefs.get('error')}"
+        )
+        return {"error": "unknown"}
+
+    extra = other_prefs.get("data") or {}
+    whocanpost = (
+        "type:admin" + "".join(",user:" + u for u in users) if users else "type:ra"
+    )
+    prefs = {"who_can_post": whocanpost, **extra}
+
+    form = {
+        "channel_id": channel_id,
+        "prefs": json.dumps(prefs),
+    }
+    data = await req(
+        "channels.prefs.set",
+        form=form,
+        override_XOXC=_env("XOXC_ACTIVE", XOXC),
+        override_XOXD=_env("XOXD_ACTIVE", XOXD),
+    )
+    if err := data.get("error"):
+        logger.error(f"remove posters error: {err}")
+        return {"error": "unknown"}
+    return {"data": "success"}
 
 
 # region local only

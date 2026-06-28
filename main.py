@@ -6,7 +6,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from cachetools import TTLCache
 import logfire
-from fastapi import FastAPI, Header, Request
+from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -44,6 +44,7 @@ from userbot import (
     bulk_cname_to_cid,
     list_mcgs,
     posters,
+    add_posters,
     promote_member,
     public_channel_search,
     user_channels,
@@ -181,7 +182,7 @@ async def channel_member_count(id: str):
 
 
 async def channel(id: str, admin: bool = False):
-    ret = {"id": id}
+    ret: dict = {"id": id}
 
     if is_channel_failed(id):
         ret["error"] = "nonexistent"
@@ -473,6 +474,33 @@ async def _list_mcgs(
     with open("mcgs.json", "r") as f:
         data = json.load(f)
     return {"data": data}
+
+
+@app.post("/superadmin/posters/{cid}")
+async def get_posters(cid: str, x_admin_key: str | None = Header(default=None)):
+    if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    result = await posters(cid)
+    if result.get("error"):
+        return result
+    return {"status": "ok", "id": cid, "who_can_post": result.get("data", {})}
+
+
+@app.post("/superadmin/addposter/{cid}")
+async def add_poster(
+    cid: str,
+    users: list[str] = Query(default=[]),
+    x_admin_key: str | None = Header(default=None),
+):
+    if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    if not users:
+        return {"error": "no users provided"}
+    result = await add_posters(cid, users)
+    if result.get("error"):
+        return result
+    current = await posters(cid)
+    return {"status": "ok", "id": cid, "who_can_post": current.get("data", {})}
 
 
 @app.get("/mcgchannels/{id}")
