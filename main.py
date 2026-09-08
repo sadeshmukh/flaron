@@ -45,6 +45,7 @@ from userbot import (
     list_mcgs,
     posters,
     add_posters,
+    remove_posters,
     promote_member,
     public_channel_search,
     user_channels,
@@ -497,6 +498,23 @@ async def add_poster(
     if not users:
         return {"error": "no users provided"}
     result = await add_posters(cid, users)
+    if result.get("error"):
+        return result
+    current = await posters(cid)
+    return {"status": "ok", "id": cid, "who_can_post": current.get("data", {})}
+
+
+@app.post("/superadmin/removeposter/{cid}")
+async def remove_poster(
+    cid: str,
+    users: list[str] = Query(default=[]),
+    x_admin_key: str | None = Header(default=None),
+):
+    if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
+        return {"error": "unauthorized"}
+    if not users:
+        return {"error": "no users provided"}
+    result = await remove_posters(cid, users)
     if result.get("error"):
         return result
     current = await posters(cid)
