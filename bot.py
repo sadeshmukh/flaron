@@ -62,9 +62,10 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             f"`{BASE_CMD} <command> [args]`\n\n"
             "Available commands:\n"
             "- `ping`\n"
-            "- `emoji <name>`: Fetches info about an emoji.\n"
-            "- `app @bot`: Fetches info about any app/bot.\n"
-            "- `q <query>`: Links directly to Flaron.\n"
+            "- `@user/@bot`: Fetches info about any user or bot\n"
+            "- `e/emoji <name>`: Fetches info about an emoji\n"
+            "- `q <query>`: Generates link to view in Flaron\n"
+            "- `p/promote @user`: Promotes MCGs to full users"
         )
 
     def resp_err(err: str):
