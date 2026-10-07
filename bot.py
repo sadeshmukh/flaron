@@ -52,6 +52,14 @@ ADMIN_KEY = _env("ADMIN_KEY")
 error_message = lambda err: "Oh no! Looks like something went wrong: " + err
 
 
+def parse_user_id(identifier: str) -> str | None:
+    if match := re.fullmatch(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", identifier):
+        return match.group(1)
+    if re.fullmatch(r"[UW][A-Z0-9]+", identifier):
+        return identifier
+    return None
+
+
 @app.command(BASE_CMD)
 async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
     await ack()
@@ -62,10 +70,10 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             f"`{BASE_CMD} <command> [args]`\n\n"
             "Available commands:\n"
             "- `ping`\n"
-            "- `@user/@bot`: Fetches info about any user or bot\n"
+            "- `@user/@bot/user_id`: Fetches info about any user or bot\n"
             "- `e/emoji <name>`: Fetches info about an emoji\n"
             "- `q <query>`: Generates link to view in Flaron\n"
-            "- `p/promote @user`: Promotes MCGs to full users"
+            "- `p/promote @user/user_id`: Promotes MCGs to full users"
         )
 
     def resp_err(err: str):
@@ -101,18 +109,15 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             + (synonym_text if len(info.get("synonyms", [])) > 0 else "")
         )
 
-    elif ((not args) and (re.fullmatch(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", cmd))) or (
-        cmd in ["a", "app", "u", "user"]
-    ):
+    elif ((not args) and parse_user_id(cmd)) or (cmd in ["a", "app", "u", "user"]):
         if cmd in ["a", "app", "u", "user"] and len(args) != 1:
-            return await respond(f"Usage: `{BASE_CMD} {cmd} @bot")
+            return await respond(f"Usage: `{BASE_CMD} {cmd} @user/user_id`")
         if not args:
             args = [cmd]
         identifier = args[0]
         # user -> app data
-        if not (m := re.fullmatch(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", identifier)):
-            return await respond("no mention found?")
-        user_id = m.group(1)
+        if not (user_id := parse_user_id(identifier)):
+            return await respond("no user mention or ID found?")
         if (userinfo := await user_info_edge(user_id)).get("error"):
             return await resp_err(userinfo.get("error", "unknown"))
         userinfo = userinfo.get("data", {})
@@ -210,21 +215,21 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
         )
     elif cmd in ["p", "promote"]:
         if len(args) != 1:
-            return await respond(f"Usage: `{BASE_CMD} promote @user`")
+            return await respond(f"Usage: `{BASE_CMD} promote @user/user_id`")
         # anybody can
-        m = re.search(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", args[0])
-        if not m:
+        user_id = parse_user_id(args[0])
+        if not user_id:
             return await respond("that's not a user?")
-        logging.info(f"Promote requested by {command.get('user_id')} for {m.group(1)}")
-        res = await promote_member(m.group(1))
+        logging.info(f"Promote requested by {command.get('user_id')} for {user_id}")
+        res = await promote_member(user_id)
         if res.get("error"):
             return await respond(error_message(res["error"]))
-        await respond(f"Promoted <@{m.group(1)}> from MCG!")
+        await respond(f"Promoted <@{user_id}> from MCG!")
     elif cmd in ["m", "manager"]:
         # get/add/remove
         if not args:
             return await respond(
-                f"Usage: `{BASE_CMD} manager get [channel]` or `{BASE_CMD} manager add/remove @user [channel]`"
+                f"Usage: `{BASE_CMD} manager get [channel]` or `{BASE_CMD} manager add/remove @user/user_id [channel]`"
             )
         if args[0] == "get":
             channel_id = command.get("channel_id")
@@ -258,10 +263,9 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             args = args[1:]
             if not args:
                 return await respond("who do you want to add/remove?")
-            m = re.search(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", args[0])
-            if not m:
+            target_user = parse_user_id(args[0])
+            if not target_user:
                 return await respond("that's not a user?")
-            target_user = m.group(1)
             channel_id = command.get("channel_id")
             if len(args) > 1:
                 if cm := re.search(r"C[A-Z0-9]{6,}", args[1]):
