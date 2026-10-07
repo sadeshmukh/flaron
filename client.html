@@ -1106,7 +1106,11 @@
                 </div>
                 <div class="lookup-section" x-show="item.data.fraud">
                   <div class="lookup-label">trust</div>
-                  <span
+                  <a
+                    class="user-link"
+                    :href="`https://telescreen.hackclub.com/subjects/${item.data.user?.id}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     x-text="item.data.fraud"
                     :style="{
                       blue: 'color: var(--blue)',
@@ -1114,7 +1118,7 @@
                       red: 'color: var(--red)',
                       yellow: 'color: var(--yellow)',
                     }[item.data.fraud] || 'color: var(--dim)'"
-                  ></span>
+                  ></a>
                 </div>
                 <div class="lookup-section" x-show="item.data.idv_status">
                   <div class="lookup-label">identity</div>
