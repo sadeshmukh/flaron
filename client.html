@@ -1123,6 +1123,35 @@
                     :style="['verified_eligible','verified_but_over_18'].includes(item.data.idv_status) ? 'color: var(--accent)' : 'color: var(--dim)'"
                   ></span>
                 </div>
+                <div class="lookup-section" x-show="item.data.nda?.status">
+                  <div class="lookup-label">NDA</div>
+                  <span
+                    x-text="item.data.nda?.status === 'signed' ? 'signed' : 'not signed'"
+                    :style="item.data.nda?.status === 'signed' ? 'color: var(--accent)' : 'color: var(--dim)'"
+                  ></span>
+                  <span
+                    x-show="item.data.nda?.status === 'signed' && item.data.nda?.signed_at"
+                    x-text="item.data.nda?.signed_at?.split('T')[0] || ''"
+                  ></span>
+                  <span
+                    x-show="item.data.nda?.status === 'signed' && item.data.nda?.nda_version != null"
+                    x-text="' · version ' + (item.data.nda?.nda_version ?? '')"
+                    style="color: var(--dim)"
+                  ></span>
+                  <span
+                    x-show="item.data.nda?.status === 'signed' && item.data.nda?.signature_type === 'legacy'"
+                    style="color: var(--amber)"
+                    >(old NDA)</span
+                  >
+                  <a
+                    class="user-link"
+                    x-show="item.data.nda?.status && item.data.nda?.status !== 'signed'"
+                    href="https://nda.hackclub.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >sign here ↗</a
+                  >
+                </div>
                 <div
                   class="lookup-section"
                   x-show="item.data.user?.is_bot && item.data.user?.app_id"
