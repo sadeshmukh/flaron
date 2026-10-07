@@ -7,6 +7,9 @@ import slack_bolt
 from slack_bolt.async_app import AsyncApp, AsyncAck, AsyncRespond
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
+from urllib.parse import urlencode
+
+from slack import get_email
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -21,7 +24,7 @@ from cache import (
     cache_update_loop,
     is_channel_blacklisted,
 )
-from external import cname_private
+from external import cname_private, nda, idv_verified, trust_factor
 from userbot import (
     app_info,
     channel_info,
@@ -69,10 +72,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
 
     cmd = tokens[0]
     args = tokens[1:]
-    if not args and cmd not in {"emoji", "app", "q", "search", "ping", "manager"}:
-        # this is a search now
-        args = [cmd] + args
-        cmd = "q"
+
     if cmd == "ping":
         await respond("pong")
 
@@ -100,9 +100,13 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             + (synonym_text if len(info.get("synonyms", [])) > 0 else "")
         )
 
-    elif cmd == "app":
-        if len(args) != 1:
-            return await respond(f"Usage: `{BASE_CMD} app @bot")
+    elif ((not args) and (re.fullmatch(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", cmd))) or (
+        cmd in ["a", "app", "u", "user"]
+    ):
+        if cmd in ["a", "app", "u", "user"] and len(args) != 1:
+            return await respond(f"Usage: `{BASE_CMD} {cmd} @bot")
+        if not args:
+            args = [cmd]
         identifier = args[0]
         # user -> app data
         if not (m := re.fullmatch(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", identifier)):
@@ -112,7 +116,47 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             return await resp_err(userinfo.get("error", "unknown"))
         userinfo = userinfo.get("data", {})
         if not userinfo.get("is_bot"):
-            return await respond("That's not a bot?")
+            # not bot
+            nda_data, idv_data, trust_factor_data, email_res = await asyncio.gather(
+                nda(user_id),
+                idv_verified(user_id),
+                trust_factor(user_id),
+                get_email(user_id),
+            )
+            idv = idv_data.get("result", "")
+            trust_value = trust_factor_data.get("trust_value")
+            email = email_res.get("data")
+
+            res = f"Info for <@{user_id}>:"
+            res += f"\n*Timezone*: {userinfo.get('tz')}"
+            res += f"\n*Identity*: {email} | {userinfo.get('name')} | {user_id}"
+            res += "\n*Hackatime*: " + (
+                ":large_blue_square: Blue"
+                if trust_value == 0
+                else (
+                    ":large_red_square: Red"
+                    if trust_value == 1
+                    else (
+                        ":large_green_square: Green"
+                        if trust_value == 2
+                        else str(trust_value)
+                    )
+                )
+            )
+            res += (
+                f" _(<https://telescreen.hackclub.com/subjects/{user_id}|Telescreen>)_"
+            )
+            res += f"\n*IDV*: {" ".join(idv.split('_')).title()}"  # .title spotted
+            if nda_data.get("status", "") == "signed":
+                res += (
+                    f"\n*NDA*: Signed {nda_data.get('signed_at', ' T').split('T')[0]}"
+                )
+                if nda_data.get("signature_type") == "legacy":
+                    res += " (old NDA)"
+            else:
+                res += f"\n*NDA*: Not signed _(<https://nda.hackclub.com|Sign here>)_"
+
+            return await respond(res)
         # stuff we care about:
         # marketplace link, creator, installer MENTIONS, channel count
         app_id = userinfo.get("app_id")
@@ -140,14 +184,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
             )
             + f"https://flaron.halceon.dev/?q={user_id}"
         )
-    elif cmd == "q":
-        if len(args) != 1:
-            return await respond(f"Usage: `{BASE_CMD} q <query>`")
-        query = args[0]
-        query = re.sub(r"<[@#]([A-Z0-9]+)(?:\|[^>]*)?>", r"\1", query)
-
-        await respond("http://flaron.halceon.dev/?q=" + query)
-    elif cmd == "search":
+    elif cmd in ["s", "search"]:
         if len(args) < 1:
             return await respond(f"search ~key~ q")
         query = args[0]
@@ -170,7 +207,7 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
         await respond(
             f"*{len(matches)} match(es) for `{query}`:*\n" + "\n".join(lines) + suffix
         )
-    elif cmd == "promote":
+    elif cmd in ["p", "promote"]:
         if len(args) != 1:
             return await respond(f"Usage: `{BASE_CMD} promote @user`")
         # anybody can
@@ -182,11 +219,11 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
         if res.get("error"):
             return await respond(error_message(res["error"]))
         await respond(f"Promoted <@{m.group(1)}> from MCG!")
-    elif cmd == "manager":
+    elif cmd in ["m", "manager"]:
         # get/add/remove
         if not args:
             return await respond(
-                f"Usage: `{BASE_CMD} manager get [channel]` or `{BASE_CMD} manager add/remove @user [channel]"
+                f"Usage: `{BASE_CMD} manager get [channel]` or `{BASE_CMD} manager add/remove @user [channel]`"
             )
         if args[0] == "get":
             channel_id = command.get("channel_id")
@@ -249,7 +286,13 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
                 await respond(error_message(f"Failed to {action} manager."))
 
     else:
-        await respond("???")
+        if cmd in ["q", "query"]:
+            query = " ".join(args)
+        else:
+            query = " ".join([cmd] + args)
+        query = re.sub(r"<[@#]([A-Z0-9]+)(?:\|[^>]*)?>", r"\1", query)
+
+        await respond("http://flaron.halceon.dev/?" + urlencode({"q": query}))
 
 
 # message shortcut

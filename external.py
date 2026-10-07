@@ -34,3 +34,11 @@ async def idv_verified(user_id: str) -> dict:
             data = await res.json()
             # result: needs_submission, pending, verified_eligible, verified_but_over_18, rejected, not_found
             return data
+
+
+async def nda(user_id: str) -> dict:
+    url = f"https://nda.hackclub.com/api/v1/nda_status/{user_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as res:
+            data = await res.json()
+            return data  # slack_id, status, nda_version, signed_at | https://nda.hackclub.com/api/v1/docs
