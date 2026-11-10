@@ -9,6 +9,7 @@ dependencies = [
     "cachetools>=7.1.1",
     "fastapi>=0.136.0",
     "logfire[fastapi]>=4.32.1",
+    "mcp>=1.26,<2",
     "python-dotenv==1.0.0",
     "rich>=15.0.0",
     "slack-bolt>=1.28.0",

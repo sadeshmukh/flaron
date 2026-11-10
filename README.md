@@ -18,6 +18,10 @@ Access to Flaron is controlled via a bot and API. In Slack, use the message shor
 
 Note that the UI is highly AI assisted, as it is not the main focus of this project, and is meant to be a simplistic demo client for the APIs available here. That being said, it provides a good example of how to use the APIs, e.g. search-as-you-type user/channel search, and the ability to quickly query the private channel DB both in bulk and individually.
 
+# MCP
+
+Flaron also has an (unauthenticated) read-only MCP at `/mcp`. There are two tools: `get_user_info(user_id)` and `get_channel_info(channel)`. These more or less maintain parity with their corresponding API routes at `/user/id` and `/channel/id`.
+
 # How?
 
 Most data from Slack comes from userbotted endpoints. These come in two varieties - flannel requests and normal requests. Flannel is Slack's edge API and contains much of the random info you see that loads everywhere throughout Slack. Normal requests are made more "intentionally", whatever you want to call it, and oftentimes have worse ratelimits. Every single piece of information that you ever see on Slack is available through one of these two methods, which makes Flaron easily extensible.

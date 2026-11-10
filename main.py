@@ -4,11 +4,14 @@ import aiohttp
 import asyncio
 
 from contextlib import asynccontextmanager
+from typing import Any
 from cachetools import TTLCache
 import logfire
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
+from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 import uvicorn
 import sys
 import os
@@ -124,12 +127,17 @@ async def lifespan(app: FastAPI):
         logger.warning("commands not found, oop")
         exit(1)
     sync_task = asyncio.create_task(failed_channels_sync_loop())
-    yield
-    sync_task.cancel()
+    try:
+        async with mcp.session_manager.run():
+            yield
+    finally:
+        sync_task.cancel()
 
 
 # struct: {command name -> {name, usage, description, app_name, app_id,
 # icons: {image_32, image_48, image_64, image_72}}}
+mcp = FastMCP("Flaron", host="0.0.0.0", stateless_http=True, json_response=True)
+
 if not _env("LOGFIRE_WRITE_TOKEN", ""):
     logger.warning("no logfire write token, won't log")
 else:
@@ -529,6 +537,31 @@ async def mcg_channels(id: str, x_admin_key: str | None = Header(default=None)):
     if not x_admin_key or x_admin_key != _env("SUPERADMIN_KEY", ""):
         return {"error": "unauthorized"}
     return await user_channels(id)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
+async def get_user_info(user_id: str) -> dict[str, Any]:
+    """Look up a Slack user by U-prefixed ID (e.g. U012ABCDEF).
+
+    Returns the /user response, including profile, phone, IDV, trust, and NDA
+    status; bot profiles include installer and creator information instead.
+    Lookup failures use the existing API error payloads.
+    """
+    return await user_info(user_id)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
+async def get_channel_info(channel: str) -> dict[str, Any]:
+    """Look up a Slack channel by C-prefixed ID or name (with optional #).
+
+    Returns the /channel response: public channel metadata, counts, managers,
+    and posting permissions, or a private channel's ID and name when known.
+    Blacklisted and missing channels return an error without admin access.
+    """
+    return await channel_info_public(channel, x_admin_key=None)
+
+
+app.mount("/", mcp.streamable_http_app())
 
 
 if __name__ == "__main__":
