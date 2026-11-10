@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+export PATH="$HOME/.local/bin:$PATH"
+
+if ! command -v uv >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "Installing curl and CA certificates"
+        time apt-get update
+        time apt-get install -y --no-install-recommends curl ca-certificates
+    fi
+    echo "Installing uv"
+    time curl -LsSf https://astral.sh/uv/0.12.9/install.sh | \
+        env UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh
+fi
+
+echo "Installing Python $(cat .python-version)"
+time uv python install
+
+echo "Syncing dependencies from uv.lock"
+time uv sync --locked
+
+echo "Orb dependencies ready; application services are not started"

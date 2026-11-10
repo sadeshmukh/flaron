@@ -14,3 +14,6 @@ wheels/
 *.json
 
 .ignore
+
+# Orb portal metadata
+.amp/portals/*

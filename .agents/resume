@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# There are no local backing services or authentication sessions to restore.
+if [[ ! -x .venv/bin/python ]]; then
+    echo "Python environment missing; run .agents/setup to restore it" >&2
+    exit 1
+fi
