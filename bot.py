@@ -102,8 +102,8 @@ async def everything(ack: AsyncAck, respond: AsyncRespond, command: dict):
         await respond(
             f"*{emoji} (:{emoji}:)*\n"
             + (
-                f"Alias for :{info.get('alias_for')}:"
-                if info.get("alias_for")
+                f"Alias for :{info.get('canonical')}:"
+                if info.get("canonical")
                 else "" f"Made by <@{info.get('user_id')}> | "
             )
             + (synonym_text if len(info.get("synonyms", [])) > 0 else "")

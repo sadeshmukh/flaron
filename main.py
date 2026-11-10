@@ -336,7 +336,11 @@ async def _app_info(id: str):
         installedby = install_info_data.get("installers", [])
         data["installers"] = installedby
         data["creator_id"] = install_info_data.get("creator", {})
-        data["user"] = (await user_info_edge(installedby[0].get("id"))).get("data", {})
+        data["user"] = (
+            (await user_info_edge(installedby[0].get("id"))).get("data", {})
+            if installedby
+            else {}
+        )
         if (appinfo := await app_info(id, data["user"].get("bot_id"))).get(
             "error"
         ) is None:
@@ -464,9 +468,10 @@ async def promote(id: str, request: Request):
         host = request.client and request.client.host
         logging.warning(f"{host} attempted to promote {id}: {err}!!")
         return {"error": "unknown"}
+    if err:
+        return {"error": err}
     if user_cache.get(id):
         del user_cache[id]
-        print(user_cache.get(id))
     return {"data": res.get("data", {})}
 
 

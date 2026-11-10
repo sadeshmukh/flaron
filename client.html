@@ -1233,6 +1233,10 @@
                     x-text="item.data.app?.app_id"
                   ></span>
                   <span
+                    x-show="item.data.app?.user_id"
+                    x-text="item.data.app?.user_id"
+                  ></span>
+                  <span
                     x-show="item.data.app?.username"
                     x-text="'@' + item.data.app?.username"
                   ></span>
@@ -1253,6 +1257,11 @@
                   <div class="lookup-label">tagline</div>
                   <span x-text="item.data.app?.tagline"></span>
                 </div>
+                <div
+                  class="lookup-desc"
+                  x-show="item.data.app?.description"
+                  x-text="item.data.app?.description"
+                ></div>
                 <div
                   class="lookup-section"
                   x-show="item.data.app?.date_installed"
@@ -1293,23 +1302,23 @@
                 </div>
                 <div
                   class="lookup-section"
-                  x-show="item.data.user?.name || item.data.user?.id"
+                  x-show="item.data.creator_id"
                 >
                   <div class="lookup-label">creator</div>
                   <a
                     class="user-link"
-                    :href="`https://hackclub.slack.com/team/${item.data.user?.id}`"
+                    :href="`https://hackclub.slack.com/team/${item.data.creator_id}`"
                     target="_blank"
                     ><span x-show="showDisplayNames" class="user-link-inner"
                       ><img
-                        x-show="userDetails[item.data.user?.id]?.imageUrl"
-                        :src="userDetails[item.data.user?.id]?.imageUrl || ''"
+                        x-show="userDetails[item.data.creator_id]?.imageUrl"
+                        :src="userDetails[item.data.creator_id]?.imageUrl || ''"
                         class="user-link-pfp" /><span
-                        x-text="userDetails[item.data.user?.id]?.displayName || userDetails[item.data.user?.id]?.name || item.data.user?.id"
+                        x-text="userDetails[item.data.creator_id]?.displayName || userDetails[item.data.creator_id]?.name || item.data.creator_id"
                       ></span></span
                     ><span
                       x-show="!showDisplayNames"
-                      x-text="'@' + (item.data.user?.name || item.data.user?.id)"
+                      x-text="'@' + (userDetails[item.data.creator_id]?.name || item.data.creator_id)"
                     ></span
                   ></a>
                 </div>
@@ -1582,6 +1591,8 @@
                 const json = await res.json();
                 if (json.error) return null;
                 const data = json.data ?? json;
+                if (data.user?.is_bot && data.user?.app_id)
+                  return this.lookupOne(data.user.app_id);
                 if (data.creator_id) {
                   const map = await resolveUsers([data.creator_id]);
                   data.creator_name = map[data.creator_id];
@@ -1598,9 +1609,11 @@
                 const json = await res.json();
                 if (json.error) return null;
                 const appData = json.data ?? json;
+                if (!/^[UW][A-Z0-9]+$/.test(appData.creator_id))
+                  appData.creator_id = appData.installers?.[0]?.id;
                 this.enrichUserDetails([
                   ...(appData.installers ?? []).map((i) => i.id),
-                  appData.user?.id,
+                  appData.creator_id,
                 ]);
                 return { type: "app", data: appData };
               } else {
@@ -1773,7 +1786,10 @@
                 const cnames_headers = { "Content-Type": "application/json" };
                 if (this.adminKey)
                   cnames_headers["X-Admin-Key"] = this.adminKey;
-                const res = await fetch(`${API}/cnames`, {
+                const url = new URL(`${API}/cnames`);
+                if (this.adminKey && this.bypassCache)
+                  url.searchParams.set("bypass", "true");
+                const res = await fetch(url, {
                   method: "POST",
                   headers: cnames_headers,
                   body: JSON.stringify(names),
