@@ -36,6 +36,8 @@ You can identify missing environment variables, as any code path that uses it sh
 
 XOXC, XOXD, XOXC_PROMOTE, XOXD_PROMOTE: scraped tokens for the account you wish to impersonate, and its higher scoped variant for calls not accessible elsewhere. Some endpoints that require PROMOTE tokens may not be accessible to regular workspace members.
 
+DBD: optional device-binding cookie, sent as `dbd` on both normal and edge requests when set. Scrape it alongside the `d` cookie (XOXD) and xoxc token (XOXC) from the same browser session. It rotates, so a static scrape goes stale; refresh it with the session credentials when needed. Leaving it unset preserves the existing cookie headers.
+
 DS: needed occasionally for PROMOTE actions
 
 XOXP, XOXB, XAPP: tokens for the bot user, for the bot client

@@ -59,6 +59,8 @@ async def req(
     override_XOXD=None,
 ) -> dict:
     headers = {"Cookie": f"d={quote(override_XOXD or XOXD)}", "Accept": "*/*"}
+    if dbd := _env("DBD", ""):
+        headers["Cookie"] += f"; dbd={dbd}"
     params.update(
         {
             "slack_route": (
@@ -92,6 +94,8 @@ async def edge(path: str, jsondata: dict = {}, params: dict[str, str] = {}) -> d
         "Accept": "*/*",
         "Cookie": f"d={quote(XOXD)}; d-s={_env('DS')}; ic={_env('DS')}",
     }
+    if dbd := _env("DBD", ""):
+        headers["Cookie"] += f"; dbd={dbd}"
     url = f"https://edgeapi.slack.com/cache/{EID}/{path}"
 
     jsondata.update({"as_admin": True, "token": XOXC, "enterprise_token": XOXC})
@@ -528,6 +532,38 @@ def _is_valid_channel_name(name: str) -> bool:
     return bool(name) and all(c.isalnum() or c in "_-" for c in name)
 
 
+async def _channel_privacy(ids: list[str]) -> dict[str, bool]:
+    ids = list(dict.fromkeys(ids))
+    privacy = {}
+    while ids:
+        batch = ids[:600]
+        # The 10,000-byte limit includes the auth fields added by edge().
+        # Leave 500 bytes of margin and shrink further for larger IDs/tokens.
+        while True:
+            payload = {
+                "ids": batch,
+                "as_admin": True,
+                "token": XOXC,
+                "enterprise_token": XOXC,
+            }
+            if len(json.dumps(payload, separators=(",", ":")).encode()) <= 9_500:
+                break
+            if len(batch) == 1:
+                raise ValueError("channel privacy request exceeds byte budget")
+            batch = batch[: len(batch) // 2]
+        data = await edge("channels/info", {"ids": batch})
+        if err := data.get("error"):
+            raise RuntimeError(f"channel privacy lookup error: {err}")
+        # These IDs already resolved by name. For the production identity (no
+        # private memberships), failed_ids means private/inaccessible.
+        privacy.update({cid: True for cid in data.get("failed_ids", [])})
+        privacy.update({c["id"]: c["is_private"] for c in data.get("results", [])})
+        if any(cid not in privacy for cid in batch):
+            raise RuntimeError("channel privacy lookup returned incomplete results")
+        ids = ids[len(batch) :]
+    return privacy
+
+
 async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
     if not names:
         return {}
@@ -590,19 +626,18 @@ async def _resolve_channel_names(names: list[str]) -> dict[str, dict]:
         result = {}
         for name, token in zip(names, text.split(" ")):
             if m := re.search(r"<#(C\w+)(?:\|[^>]*)?>", token):
-                # <#ID|name> = public, <#ID> = private, plain #name = not found
-                result[name] = {
-                    "id": m.group(1),
-                    "private": token == f"<#{m.group(1)}>",
-                }
+                result[name] = {"id": m.group(1)}
             elif token == name:
                 logger.warning(f"polluted name res: {name}")
             else:
                 logger.warning(f"what? {token} doesn't match @ {name}")
-        return result
     except Exception as err:
         logger.error(f"channel name resolution parsing error: {err}")
         return {}
+    privacy = await _channel_privacy([v["id"] for v in result.values()])
+    for channel in result.values():
+        channel["private"] = privacy[channel["id"]]
+    return result
 
 
 _cname_queue: asyncio.Queue | None = None  # (name, bypass_cache, fut)
